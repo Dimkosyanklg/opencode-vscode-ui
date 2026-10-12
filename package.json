@@ -1,0 +1,94 @@
+{
+  "name": "opencode-vscode-ui",
+  "displayName": "OpenCode UI",
+  "description": "A graphical (Cursor-like) interface for OpenCode inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "opencode-ui",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "opencode",
+          "title": "OpenCode",
+          "icon": "media/opencode.svg"
+        }
+      ]
+    },
+    "views": {
+      "opencode": [
+        {
+          "type": "webview",
+          "id": "opencode.chat",
+          "name": "Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "opencode.newSession",
+        "title": "OpenCode: New Chat",
+        "icon": "$(add)"
+      },
+      {
+        "command": "opencode.selectModel",
+        "title": "OpenCode: Select Model",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "opencode.serverInfo",
+        "title": "OpenCode: Server Info"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "opencode.newSession",
+          "when": "view == opencode.chat",
+          "group": "navigation@1"
+        },
+        {
+          "command": "opencode.selectModel",
+          "when": "view == opencode.chat",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "npm run build:webview && npm run build:extension",
+    "build:extension": "node esbuild.mjs",
+    "build:webview": "vite build webview",
+    "watch": "concurrently -k -n ext,web -c blue,magenta \"node esbuild.mjs --watch\" \"vite build webview --watch\"",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "package": "npm run build && vsce package"
+  },
+  "dependencies": {
+    "@opencode/client": "2.0.27"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/vscode": "^1.90.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vscode/vsce": "^4.0.0",
+    "concurrently": "^9.1.0",
+    "esbuild": "^0.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}

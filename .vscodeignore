@@ -1,0 +1,8 @@
+# Whitelist packaging: only ship the built extension and assets.
+**/*
+!package.json
+!README.md
+!LICENSE*
+!media/**
+!dist/extension.js
+!dist/webview/**
