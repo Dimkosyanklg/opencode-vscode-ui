@@ -2,6 +2,7 @@ import type {
   ModelRef,
   TokenUsage,
   ToolStatus,
+  UiAgent,
   UiMessage,
   UiModel,
   UiPart,
@@ -30,6 +31,8 @@ export class SessionController {
   private state: UiState;
   private eventsAbort = new AbortController();
   private started = false;
+  private subscribed = false;
+  private creating?: Promise<string>;
   private assistant = new Map<string, AssistantBuild>();
   private messageIndex = new Map<string, number>();
 
@@ -43,6 +46,7 @@ export class SessionController {
       status: "connecting",
       workspace,
       models: [],
+      modelsLoading: true,
       agents: [],
       busy: false,
       messages: [],
@@ -60,6 +64,7 @@ export class SessionController {
     this.started = false;
     this.state.models = [];
     this.state.agents = [];
+    this.state.modelsLoading = true;
     this.state.sessionID = undefined;
     this.state.messages = [];
     void this.start();
@@ -77,9 +82,11 @@ export class SessionController {
     try {
       await this.host.connect(() => this.patch({ statusText: "Starting OpenCode service…" }));
       this.patch({ status: "ready", statusText: undefined, serverUrl: this.host.url });
+      // Listen for catalog updates before the first fetch so a late model
+      // snapshot is picked up automatically.
+      this.subscribeEvents();
       await this.loadCatalog();
       await this.ensureSession();
-      this.subscribeEvents();
     } catch (error) {
       this.started = false;
       this.log("failed to start OpenCode session", error);
@@ -87,18 +94,45 @@ export class SessionController {
     }
   }
 
-  private async loadCatalog(): Promise<void> {
-    const [{ models }, agents] = await Promise.all([
-      this.host.listModels(this.workspace),
-      this.host.listAgents(this.workspace).catch(() => []),
-    ]);
+  /**
+   * Load models and agents. The server may report an empty model snapshot until
+   * plugins settle, so retry a few times before giving up; the UI can also be
+   * refreshed manually or automatically via `model.updated`.
+   */
+  private async loadCatalog(options: { attempts?: number; quiet?: boolean } = {}): Promise<void> {
+    const attempts = options.attempts ?? 4;
+    let models: UiModel[] = [];
+    let agents: UiAgent[] = [];
+    let lastError: unknown;
+
+    if (!options.quiet) this.patch({ modelsLoading: true });
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const [catalog, agentList] = await Promise.all([
+          this.host.listModels(this.workspace),
+          this.host.listAgents(this.workspace).catch(() => [] as UiAgent[]),
+        ]);
+        models = catalog.models;
+        if (agentList.length) agents = agentList;
+        if (models.length > 0) break;
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < attempts) await delay(400 * attempt);
+    }
+
+    if (models.length === 0) {
+      this.log("model catalog is still empty after retries", lastError ? toMessage(lastError) : "");
+      this.patch({ modelsLoading: false, agents });
+      return;
+    }
 
     let selected = this.state.selectedModel;
     if (!selected || !models.some((m) => sameRef(m.ref, selected!))) {
       selected = await this.resolveDefaultModel(models);
     }
-
-    this.patch({ models, agents, selectedModel: selected });
+    this.patch({ models, agents, selectedModel: selected, modelsLoading: false });
   }
 
   private async resolveDefaultModel(models: UiModel[]): Promise<ModelRef | undefined> {
@@ -121,31 +155,45 @@ export class SessionController {
 
   async ensureSession(): Promise<string> {
     if (this.state.sessionID) return this.state.sessionID;
-    const session = await this.host.createSession({
-      directory: this.workspace,
-      model: this.state.selectedModel,
-      agent: this.state.selectedAgent,
-    });
+    if (this.creating) return this.creating;
+
+    this.creating = (async () => {
+      const session = await this.host.createSession({
+        directory: this.workspace,
+        model: this.state.selectedModel,
+        agent: this.state.selectedAgent,
+      });
+      this.patch({ sessionID: session.id, sessionTitle: session.title });
+      this.log(`session ready: ${session.id}`);
+      return session.id;
+    })();
+
+    try {
+      return await this.creating;
+    } finally {
+      this.creating = undefined;
+    }
+  }
+
+  /**
+   * Clear the conversation. The session is dropped rather than recreated, so
+   * the next prompt starts a fresh one and the model loses all prior context.
+   */
+  async clearChat(): Promise<void> {
+    const previous = this.state.sessionID;
+    if (previous && this.state.busy) {
+      void this.host.interrupt(previous).catch(() => undefined);
+    }
     this.messageIndex.clear();
     this.assistant.clear();
     this.patch({
-      sessionID: session.id,
-      sessionTitle: session.title,
+      sessionID: undefined,
+      sessionTitle: undefined,
       messages: [],
       busy: false,
+      activity: undefined,
+      error: undefined,
     });
-    this.log(`session ready: ${session.id}`);
-    return session.id;
-  }
-
-  async newSession(): Promise<void> {
-    this.state.sessionID = undefined;
-    this.state.messages = [];
-    this.state.busy = false;
-    this.messageIndex.clear();
-    this.assistant.clear();
-    await this.ensureSession();
-    this.patch({ messages: this.state.messages, sessionTitle: undefined });
   }
 
   async selectModel(ref: ModelRef | null): Promise<void> {
@@ -173,14 +221,15 @@ export class SessionController {
   async send(text: string): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const sessionID = await this.ensureSession();
 
+    // Show the user's message immediately, before any session round-trip.
     const tempId = `local-${Date.now()}`;
     const userMessage: UiMessage = { id: tempId, role: "user", time: Date.now(), text: trimmed };
     this.pushMessage(userMessage);
     this.patch({ messages: this.state.messages, busy: true, activity: "Thinking…", error: undefined });
 
     try {
+      const sessionID = await this.ensureSession();
       const inbox = await this.host.prompt(sessionID, trimmed);
       const realId = inbox?.id;
       if (realId && realId !== tempId) {
@@ -206,6 +255,8 @@ export class SessionController {
   }
 
   private subscribeEvents(): void {
+    if (this.subscribed) return;
+    this.subscribed = true;
     void this.eventLoop();
   }
 
@@ -234,7 +285,9 @@ export class SessionController {
   private handleEvent(event: OpenCodeEvent): void {
     const data = (event as { data?: Record<string, unknown> }).data ?? {};
     const sessionID = data.sessionID as string | undefined;
-    if (sessionID && this.state.sessionID && sessionID !== this.state.sessionID) return;
+    // Ignore events that do not belong to the active session. While a new chat
+    // is being created the active id is undefined, so stale events are dropped.
+    if (sessionID && sessionID !== this.state.sessionID) return;
 
     // The native stream type union is slightly narrower than the durable log,
     // so switch on the raw string to tolerate additional event types.
@@ -331,6 +384,14 @@ export class SessionController {
         this.patch({ busy: false, activity: undefined });
         void this.reconcileFromServer();
         break;
+      case "model.updated":
+      case "provider.updated":
+      case "agent.updated":
+      case "models-dev.refreshed":
+        // The model/provider catalog changed (including the initial snapshot
+        // settling after server start) — reload it.
+        void this.loadCatalog({ attempts: 2, quiet: true });
+        return;
       default:
         return;
     }
@@ -471,6 +532,8 @@ export class SessionController {
         this.host.getMessages(sessionID),
         this.host.getSession(sessionID).catch(() => undefined),
       ]);
+      // The user may have started a new chat while this request was in flight.
+      if (this.state.sessionID !== sessionID) return;
       const { list, builds } = buildMessagesFromServer(messages as ServerMessage[]);
       this.state.messages = list;
       this.assistant = builds;
@@ -622,6 +685,10 @@ function normalizeRef(value: unknown): ModelRef | undefined {  if (!value || typ
 
 function sameRef(a: ModelRef | undefined, b: ModelRef): boolean {
   return Boolean(a && a.id === b.id && a.providerID === b.providerID);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function toMessage(error: unknown): string {

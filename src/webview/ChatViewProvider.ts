@@ -37,8 +37,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case "abort":
           await this.controller.abort();
           break;
-        case "newSession":
-          await this.controller.newSession();
+        case "clearChat":
+          await this.controller.clearChat();
           break;
         case "selectModel":
           await this.controller.selectModel(raw.model);

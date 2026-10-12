@@ -30,8 +30,8 @@ export function App(): React.ReactElement {
     vscode().postMessage({ type: "selectModel", model });
   }, []);
 
-  const newSession = useCallback(() => {
-    vscode().postMessage({ type: "newSession" });
+  const clearChat = useCallback(() => {
+    vscode().postMessage({ type: "clearChat" });
   }, []);
 
   const refreshModels = useCallback(() => {
@@ -56,18 +56,19 @@ export function App(): React.ReactElement {
           <ModelPicker
             models={state.models}
             selected={state.selectedModel}
+            loading={state.modelsLoading || state.status === "connecting"}
             disabled={state.status !== "ready"}
             onSelect={selectModel}
             onRefresh={refreshModels}
           />
           <button
             className="icon-button"
-            title="New chat"
-            aria-label="New chat"
-            onClick={newSession}
+            title="Clear chat"
+            aria-label="Clear chat"
+            onClick={clearChat}
             disabled={state.status !== "ready"}
           >
-            <NewChatIcon />
+            <ClearIcon />
           </button>
         </div>
         <div className="topbar__sub">
@@ -116,10 +117,16 @@ function StatusDot({ state }: { state: UiState }): React.ReactElement {
   );
 }
 
-function NewChatIcon(): React.ReactElement {
+function ClearIcon(): React.ReactElement {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path
+        d="M3 4.6h10M6.4 4.6V3.3a.8.8 0 0 1 .8-.8h1.6a.8.8 0 0 1 .8.8v1.3M4.6 4.6l.55 7.5a1 1 0 0 0 1 .93h3.7a1 1 0 0 0 1-.93l.55-7.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

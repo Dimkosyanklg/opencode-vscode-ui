@@ -35,9 +35,9 @@
     },
     "commands": [
       {
-        "command": "opencode.newSession",
-        "title": "OpenCode: New Chat",
-        "icon": "$(add)"
+        "command": "opencode.clearChat",
+        "title": "OpenCode: Clear Chat",
+        "icon": "$(clear-all)"
       },
       {
         "command": "opencode.selectModel",
@@ -52,7 +52,7 @@
     "menus": {
       "view/title": [
         {
-          "command": "opencode.newSession",
+          "command": "opencode.clearChat",
           "when": "view == opencode.chat",
           "group": "navigation@1"
         },
@@ -84,6 +84,7 @@
     "@vscode/vsce": "^4.0.0",
     "concurrently": "^9.1.0",
     "esbuild": "^0.24.0",
+    "jsdom": "^30.1.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^9.1.0",

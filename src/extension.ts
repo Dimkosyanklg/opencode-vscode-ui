@@ -22,8 +22,8 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("opencode.newSession", async () => {
-      await controller.newSession();
+    vscode.commands.registerCommand("opencode.clearChat", async () => {
+      await controller.clearChat();
       provider.focusInput();
     }),
     vscode.commands.registerCommand("opencode.selectModel", async () => {

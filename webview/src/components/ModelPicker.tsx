@@ -4,12 +4,13 @@ import type { ModelRef, UiModel } from "../../../shared/protocol.js";
 type Props = {
   models: UiModel[];
   selected?: ModelRef;
+  loading?: boolean;
   disabled?: boolean;
   onSelect: (model: ModelRef | null) => void;
   onRefresh: () => void;
 };
 
-export function ModelPicker({ models, selected, disabled, onSelect, onRefresh }: Props): React.ReactElement {
+export function ModelPicker({ models, selected, loading, disabled, onSelect, onRefresh }: Props): React.ReactElement {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -59,7 +60,8 @@ export function ModelPicker({ models, selected, disabled, onSelect, onRefresh }:
     return [...byProvider.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [models, query]);
 
-  const label = selectedModel?.name ?? (models.length ? "Select model" : "Loading models…");
+  const label =
+    selectedModel?.name ?? (loading ? "Loading models…" : models.length === 0 ? "No models" : "Select model");
 
   return (
     <div className="picker" ref={rootRef}>
@@ -70,6 +72,7 @@ export function ModelPicker({ models, selected, disabled, onSelect, onRefresh }:
         onClick={() => setOpen((v) => !v)}
         title="Select model"
       >
+        {loading && !selectedModel ? <span className="spinner spinner--xs" /> : null}
         <span className="picker__label">{label}</span>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="picker__chevron">
           <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
@@ -91,7 +94,9 @@ export function ModelPicker({ models, selected, disabled, onSelect, onRefresh }:
           </div>
           <div className="picker__scroll">
             {groups.length === 0 ? (
-              <div className="picker__empty">No models match “{query}”.</div>
+              <div className="picker__empty">
+                {query.trim() ? `No models match “${query}”.` : "No models available — click ⟳ to refresh."}
+              </div>
             ) : (
               groups.map(([provider, list]) => (
                 <div key={provider} className="picker__group">

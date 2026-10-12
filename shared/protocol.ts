@@ -101,6 +101,8 @@ export type UiState = {
   workspace: string;
   sessionID?: string;
   sessionTitle?: string;
+  /** The model/provider catalog is being (re)loaded. */
+  modelsLoading?: boolean;
   models: UiModel[];
   selectedModel?: ModelRef;
   agents: UiAgent[];
@@ -118,7 +120,7 @@ export type WebviewToHost =
   | { type: "ready" }
   | { type: "send"; text: string }
   | { type: "abort" }
-  | { type: "newSession" }
+  | { type: "clearChat" }
   | { type: "selectModel"; model: ModelRef | null }
   | { type: "selectAgent"; agent: string | null }
   | { type: "refreshModels" }

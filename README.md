@@ -14,7 +14,7 @@ selector**, backed by the official OpenCode client.
 - **Streaming responses** rendered live from the OpenCode event stream
   (`session.text.delta`), including collapsible reasoning and tool cards.
 - **Tool calls** shown inline (name, argument, collapsible input/output).
-- **Session management**: new chat, session title, token/cost footer.
+- **Clear chat** action in the header, session title, and a token/cost footer.
 - Connects to OpenCode through the official `@opencode/client`, using
   `Service.ensure()` which discovers or starts the local `opencode serve`
   background service and handles authentication — the same path the TUI uses.
@@ -60,7 +60,7 @@ The **extension host owns the source of truth**. `SessionController` connects to
 OpenCode, keeps the session, consumes the live event stream, and pushes a full
 `UiState` snapshot to the webview over `postMessage`. The React UI is a pure
 renderer that sends user intents back (`send`, `abort`, `selectModel`,
-`newSession`, …). This keeps streaming logic in one place and makes the UI easy
+`clearChat`, …). This keeps streaming logic in one place and makes the UI easy
 to change.
 
 ## Roadmap

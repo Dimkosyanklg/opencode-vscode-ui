@@ -62,6 +62,20 @@ button:disabled {
   animation: spin 0.8s linear infinite;
 }
 
+.spinner--xs {
+  width: 11px;
+  height: 11px;
+  border-width: 1.5px;
+  flex: 0 0 auto;
+  margin-right: 2px;
+}
+
+.picker__button .spinner {
+  border-color: currentColor;
+  border-top-color: transparent;
+  opacity: 0.7;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
