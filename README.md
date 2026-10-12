@@ -18,6 +18,8 @@ selector**, backed by the official OpenCode client.
 - **Chat history**: a dropdown in the header to search, reopen and delete past
   sessions. History is persisted by OpenCode itself (no extra database needed),
   so it survives restarts of the background service.
+- **Permission prompts**: when OpenCode asks before a shell command or file
+  edit, an inline card lets you *Allow once*, *Always allow* or *Deny*.
 - Connects to OpenCode through the official `@opencode/client`, using
   `Service.ensure()` which discovers or starts the local `opencode serve`
   background service and handles authentication — the same path the TUI uses.
@@ -68,9 +70,8 @@ to change.
 
 ## Roadmap
 
-- [ ] Session history / switcher (list, resume, delete)
 - [ ] Agent selector (build / plan / …)
-- [ ] Permission request prompts (`permission.asked` → allow/deny)
 - [ ] Inline diffs for file edits (`vcs.diff`, tool file contents)
+- [ ] Rename sessions and group history by date
 - [ ] `@`-mentions for files and skills, image attachments
 - [ ] Slash commands and compaction

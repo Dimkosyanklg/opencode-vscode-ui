@@ -1,11 +1,13 @@
 import type {
   ModelRef,
+  PermissionDecision,
   TokenUsage,
   ToolStatus,
   UiAgent,
   UiMessage,
   UiModel,
   UiPart,
+  UiPermission,
   UiSession,
   UiState,
 } from "../../shared/protocol.js";
@@ -51,6 +53,7 @@ export class SessionController {
       modelsLoading: true,
       agents: [],
       sessions: [],
+      permissions: [],
       busy: false,
       messages: [],
     };
@@ -196,6 +199,7 @@ export class SessionController {
       sessionID: undefined,
       sessionTitle: undefined,
       messages: [],
+      permissions: [],
       busy: false,
       activity: undefined,
       error: undefined,
@@ -238,6 +242,7 @@ export class SessionController {
       sessionID,
       sessionTitle: undefined,
       messages: [],
+      permissions: [],
       busy: false,
       activity: undefined,
       error: undefined,
@@ -257,6 +262,7 @@ export class SessionController {
         sessionTitle: session?.title,
         selectedModel: normalizeRef(session?.model) ?? this.state.selectedModel,
       });
+      void this.loadPermissions(sessionID);
     } catch (error) {
       this.log("openSession failed", error);
       this.patch({ error: toMessage(error) });
@@ -278,11 +284,45 @@ export class SessionController {
         sessionID: undefined,
         sessionTitle: undefined,
         messages: [],
+        permissions: [],
         busy: false,
         activity: undefined,
       });
     }
     await this.loadSessions();
+  }
+
+  // --- permissions -------------------------------------------------------
+
+  async replyPermission(requestID: string, decision: PermissionDecision): Promise<void> {
+    const request = this.state.permissions.find((p) => p.id === requestID);
+    if (!request) return;
+    // Optimistically drop the prompt; restore it if the reply fails.
+    this.patch({ permissions: this.state.permissions.filter((p) => p.id !== requestID) });
+    try {
+      await this.host.replyPermission(request.sessionID, requestID, decision);
+    } catch (error) {
+      this.log("replyPermission failed", error);
+      this.patch({
+        permissions: [...this.state.permissions, request],
+        error: toMessage(error),
+      });
+    }
+  }
+
+  private async loadPermissions(sessionID: string): Promise<void> {
+    try {
+      const list = await this.host.listPermissions(sessionID);
+      if (this.state.sessionID !== sessionID) return;
+      this.patch({ permissions: (list ?? []).map(toUiPermission) });
+    } catch (error) {
+      this.log("loadPermissions failed", error);
+    }
+  }
+
+  private addPermission(permission: UiPermission): void {
+    if (this.state.permissions.some((p) => p.id === permission.id)) return;
+    this.state.permissions = [...this.state.permissions, permission];
   }
 
   private scheduleSessionsReload(): void {
@@ -507,6 +547,12 @@ export class SessionController {
       case "session.idle":
         this.patch({ busy: false, activity: undefined });
         void this.reconcileFromServer();
+        break;
+      case "permission.asked":
+        this.addPermission(toUiPermission(data));
+        break;
+      case "permission.replied":
+        this.state.permissions = this.state.permissions.filter((p) => p.id !== (data.requestID as string));
         break;
       default:
         return;
@@ -775,6 +821,19 @@ function structuredError(error: unknown): string | undefined {
     return e.message ?? e.type;
   }
   return String(error);
+}
+
+function toUiPermission(raw: unknown): UiPermission {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const source = r.source as { id?: unknown } | undefined;
+  return {
+    id: String(r.id ?? ""),
+    sessionID: String(r.sessionID ?? ""),
+    action: String(r.action ?? "action"),
+    resources: Array.isArray(r.resources) ? (r.resources as unknown[]).map(String) : [],
+    message: typeof r.message === "string" ? r.message : undefined,
+    tool: source && typeof source.id === "string" ? source.id : undefined,
+  };
 }
 
 function normalizeTokens(value: unknown): TokenUsage | undefined {

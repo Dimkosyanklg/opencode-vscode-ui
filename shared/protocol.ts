@@ -58,6 +58,18 @@ export type UiSession = {
   cost?: number;
 };
 
+export type PermissionDecision = "once" | "always" | "reject";
+
+export type UiPermission = {
+  id: string;
+  sessionID: string;
+  action: string;
+  resources: string[];
+  message?: string;
+  /** Tool that triggered the request, when known. */
+  tool?: string;
+};
+
 export type TokenUsage = {
   input: number;
   output: number;
@@ -116,6 +128,8 @@ export type UiState = {
   /** Recent sessions for this workspace, newest first. */
   sessions: UiSession[];
   sessionsLoading?: boolean;
+  /** Pending permission requests for the active session. */
+  permissions: UiPermission[];
   selectedModel?: ModelRef;
   agents: UiAgent[];
   selectedAgent?: string;
@@ -136,6 +150,7 @@ export type WebviewToHost =
   | { type: "listSessions"; search?: string }
   | { type: "openSession"; sessionID: string }
   | { type: "deleteSession"; sessionID: string }
+  | { type: "replyPermission"; requestID: string; decision: PermissionDecision }
   | { type: "selectModel"; model: ModelRef | null }
   | { type: "selectAgent"; agent: string | null }
   | { type: "refreshModels" }

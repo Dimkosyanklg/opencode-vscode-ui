@@ -49,6 +49,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case "deleteSession":
           await this.controller.deleteSession(raw.sessionID);
           break;
+        case "replyPermission":
+          await this.controller.replyPermission(raw.requestID, raw.decision);
+          break;
         case "selectModel":
           await this.controller.selectModel(raw.model);
           break;

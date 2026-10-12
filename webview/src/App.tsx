@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { ModelRef, UiState } from "../../shared/protocol.js";
+import type { ModelRef, PermissionDecision, UiState } from "../../shared/protocol.js";
 import { Composer, type ComposerHandle } from "./components/Composer.js";
 import { HistoryPicker } from "./components/HistoryPicker.js";
 import { MessageList } from "./components/MessageList.js";
 import { ModelPicker } from "./components/ModelPicker.js";
+import { PermissionPrompt } from "./components/PermissionPrompt.js";
 import { onHostMessage, vscode } from "./vscode.js";
 
 export function App(): React.ReactElement {
@@ -49,6 +50,10 @@ export function App(): React.ReactElement {
 
   const refreshSessions = useCallback((search?: string) => {
     vscode().postMessage({ type: "listSessions", search });
+  }, []);
+
+  const replyPermission = useCallback((requestID: string, decision: PermissionDecision) => {
+    vscode().postMessage({ type: "replyPermission", requestID, decision });
   }, []);
 
   if (!state) {
@@ -118,6 +123,8 @@ export function App(): React.ReactElement {
           <MessageList messages={state.messages} busy={state.busy} activity={state.activity} />
         )}
       </main>
+
+      <PermissionPrompt permissions={state.permissions ?? []} onReply={replyPermission} />
 
       <Composer ref={composer} disabled={state.status !== "ready"} busy={state.busy} onSend={send} onAbort={abort} />
     </div>

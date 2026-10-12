@@ -39,6 +39,9 @@ const state = {
     { id: "s1", title: "Sea story writing request", timeCreated: Date.now() - 90000, timeUpdated: Date.now() - 60000, model: { id: "big-pickle", providerID: "opencode" } },
     { id: "s2", title: "Fix clear chat button", timeCreated: Date.now() - 7200000, timeUpdated: Date.now() - 7000000 },
   ],
+  permissions: [
+    { id: "p1", sessionID: "s1", action: "shell", resources: ["echo hello"], tool: "call_123" },
+  ],
   busy: false,
   messages: [
     { id: "u1", role: "user", time: Date.now(), text: "hello" },
@@ -52,6 +55,16 @@ await new Promise((r) => setTimeout(r, 100));
 const buttons = [...dom.window.document.querySelectorAll("button")];
 console.log("buttons:", buttons.map((b) => b.getAttribute("aria-label") ?? b.className).join(" | "));
 console.log("messages rendered before:", dom.window.document.querySelectorAll(".msg").length);
+
+const permCard = dom.window.document.querySelector(".perm__card");
+console.log("permission card present:", Boolean(permCard));
+const allowOnce = [...dom.window.document.querySelectorAll(".perm__button")].find((b) =>
+  b.textContent?.includes("Allow once"),
+);
+console.log("allow-once button:", Boolean(allowOnce));
+allowOnce?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 100));
+console.log("posted after allow:", JSON.stringify(posted));
 
 const history = buttons.find((b) => b.getAttribute("aria-label") === "Chat history");
 console.log("history button present:", Boolean(history));

@@ -152,6 +152,19 @@ export class OpenCodeHost {
     await this.c.session.update({ sessionID, title });
   }
 
+  async listPermissions(sessionID: string) {
+    return this.c.permission.list({ sessionID });
+  }
+
+  async replyPermission(
+    sessionID: string,
+    requestID: string,
+    decision: "once" | "always" | "reject",
+    message?: string,
+  ) {
+    await this.c.permission.reply({ sessionID, requestID, decision, message });
+  }
+
   events(signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
     return this.c.event.subscribe(signal ? { signal } : undefined);
   }
