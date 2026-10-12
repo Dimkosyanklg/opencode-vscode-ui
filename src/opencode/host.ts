@@ -134,6 +134,24 @@ export class OpenCodeHost {
     return res.data ?? [];
   }
 
+  async listSessions(directory: string, options?: { limit?: number; search?: string; cursor?: string }) {
+    return this.c.session.list({
+      directory,
+      order: "desc",
+      limit: options?.limit ?? 40,
+      search: options?.search,
+      cursor: options?.cursor,
+    });
+  }
+
+  async removeSession(sessionID: string) {
+    await this.c.session.remove({ sessionID });
+  }
+
+  async renameSession(sessionID: string, title: string) {
+    await this.c.session.update({ sessionID, title });
+  }
+
   events(signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
     return this.c.event.subscribe(signal ? { signal } : undefined);
   }

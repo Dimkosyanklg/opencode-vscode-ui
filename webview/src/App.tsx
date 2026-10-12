@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelRef, UiState } from "../../shared/protocol.js";
 import { Composer, type ComposerHandle } from "./components/Composer.js";
+import { HistoryPicker } from "./components/HistoryPicker.js";
 import { MessageList } from "./components/MessageList.js";
 import { ModelPicker } from "./components/ModelPicker.js";
 import { onHostMessage, vscode } from "./vscode.js";
@@ -38,6 +39,18 @@ export function App(): React.ReactElement {
     vscode().postMessage({ type: "refreshModels" });
   }, []);
 
+  const openSession = useCallback((sessionID: string) => {
+    vscode().postMessage({ type: "openSession", sessionID });
+  }, []);
+
+  const deleteSession = useCallback((sessionID: string) => {
+    vscode().postMessage({ type: "deleteSession", sessionID });
+  }, []);
+
+  const refreshSessions = useCallback((search?: string) => {
+    vscode().postMessage({ type: "listSessions", search });
+  }, []);
+
   if (!state) {
     return (
       <div className="app app--loading">
@@ -60,6 +73,15 @@ export function App(): React.ReactElement {
             disabled={state.status !== "ready"}
             onSelect={selectModel}
             onRefresh={refreshModels}
+          />
+          <HistoryPicker
+            sessions={state.sessions ?? []}
+            activeID={state.sessionID}
+            loading={state.sessionsLoading}
+            disabled={state.status !== "ready"}
+            onOpen={openSession}
+            onDelete={deleteSession}
+            onRefresh={refreshSessions}
           />
           <button
             className="icon-button"

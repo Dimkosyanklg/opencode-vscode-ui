@@ -15,6 +15,9 @@ selector**, backed by the official OpenCode client.
   (`session.text.delta`), including collapsible reasoning and tool cards.
 - **Tool calls** shown inline (name, argument, collapsible input/output).
 - **Clear chat** action in the header, session title, and a token/cost footer.
+- **Chat history**: a dropdown in the header to search, reopen and delete past
+  sessions. History is persisted by OpenCode itself (no extra database needed),
+  so it survives restarts of the background service.
 - Connects to OpenCode through the official `@opencode/client`, using
   `Service.ensure()` which discovers or starts the local `opencode serve`
   background service and handles authentication — the same path the TUI uses.

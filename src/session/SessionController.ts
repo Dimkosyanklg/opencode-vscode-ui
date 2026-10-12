@@ -6,6 +6,7 @@ import type {
   UiMessage,
   UiModel,
   UiPart,
+  UiSession,
   UiState,
 } from "../../shared/protocol.js";
 import { OpenCodeHost, type OpenCodeEvent } from "../opencode/host.js";
@@ -33,6 +34,7 @@ export class SessionController {
   private started = false;
   private subscribed = false;
   private creating?: Promise<string>;
+  private sessionsReload?: ReturnType<typeof setTimeout>;
   private assistant = new Map<string, AssistantBuild>();
   private messageIndex = new Map<string, number>();
 
@@ -48,6 +50,7 @@ export class SessionController {
       models: [],
       modelsLoading: true,
       agents: [],
+      sessions: [],
       busy: false,
       messages: [],
     };
@@ -65,6 +68,7 @@ export class SessionController {
     this.state.models = [];
     this.state.agents = [];
     this.state.modelsLoading = true;
+    this.state.sessions = [];
     this.state.sessionID = undefined;
     this.state.messages = [];
     void this.start();
@@ -86,7 +90,9 @@ export class SessionController {
       // snapshot is picked up automatically.
       this.subscribeEvents();
       await this.loadCatalog();
-      await this.ensureSession();
+      // Sessions are created lazily on the first message so that merely
+      // opening the sidebar does not litter history with empty chats.
+      void this.loadSessions();
     } catch (error) {
       this.started = false;
       this.log("failed to start OpenCode session", error);
@@ -196,6 +202,97 @@ export class SessionController {
     });
   }
 
+  // --- session history ---------------------------------------------------
+
+  async loadSessions(search?: string): Promise<void> {
+    this.patch({ sessionsLoading: true });
+    try {
+      const res = await this.host.listSessions(this.workspace, { search });
+      const sessions = (res.data ?? []).map(
+        (s): UiSession => ({
+          id: s.id,
+          title: s.title ?? "Untitled",
+          timeCreated: s.time?.created ?? 0,
+          timeUpdated: s.time?.updated ?? 0,
+          model: normalizeRef(s.model),
+          cost: typeof s.cost === "number" ? s.cost : undefined,
+        }),
+      );
+      this.patch({ sessions, sessionsLoading: false });
+    } catch (error) {
+      this.log("loadSessions failed", error);
+      this.patch({ sessionsLoading: false });
+    }
+  }
+
+  async openSession(sessionID: string): Promise<void> {
+    if (sessionID === this.state.sessionID) return;
+
+    const previous = this.state.sessionID;
+    if (previous && this.state.busy) {
+      void this.host.interrupt(previous).catch(() => undefined);
+    }
+    this.messageIndex.clear();
+    this.assistant.clear();
+    this.patch({
+      sessionID,
+      sessionTitle: undefined,
+      messages: [],
+      busy: false,
+      activity: undefined,
+      error: undefined,
+    });
+
+    try {
+      const [session, messages] = await Promise.all([
+        this.host.getSession(sessionID).catch(() => undefined),
+        this.host.getMessages(sessionID),
+      ]);
+      if (this.state.sessionID !== sessionID) return; // switched again meanwhile
+      const { list, builds } = buildMessagesFromServer(messages as ServerMessage[]);
+      this.assistant = builds;
+      this.messageIndex = new Map(list.map((m, i) => [m.id, i]));
+      this.patch({
+        messages: list,
+        sessionTitle: session?.title,
+        selectedModel: normalizeRef(session?.model) ?? this.state.selectedModel,
+      });
+    } catch (error) {
+      this.log("openSession failed", error);
+      this.patch({ error: toMessage(error) });
+    }
+  }
+
+  async deleteSession(sessionID: string): Promise<void> {
+    try {
+      await this.host.removeSession(sessionID);
+    } catch (error) {
+      this.log("deleteSession failed", error);
+      this.patch({ error: toMessage(error) });
+      return;
+    }
+    if (this.state.sessionID === sessionID) {
+      this.messageIndex.clear();
+      this.assistant.clear();
+      this.patch({
+        sessionID: undefined,
+        sessionTitle: undefined,
+        messages: [],
+        busy: false,
+        activity: undefined,
+      });
+    }
+    await this.loadSessions();
+  }
+
+  private scheduleSessionsReload(): void {
+    if (this.sessionsReload) clearTimeout(this.sessionsReload);
+    this.sessionsReload = setTimeout(() => {
+      this.sessionsReload = undefined;
+      void this.loadSessions();
+    }, 400);
+  }
+
   async selectModel(ref: ModelRef | null): Promise<void> {
     if (!ref) {
       this.patch({ selectedModel: undefined });
@@ -280,18 +377,45 @@ export class SessionController {
 
   dispose(): void {
     this.eventsAbort.abort();
+    if (this.sessionsReload) clearTimeout(this.sessionsReload);
   }
 
   private handleEvent(event: OpenCodeEvent): void {
     const data = (event as { data?: Record<string, unknown> }).data ?? {};
     const sessionID = data.sessionID as string | undefined;
-    // Ignore events that do not belong to the active session. While a new chat
-    // is being created the active id is undefined, so stale events are dropped.
-    if (sessionID && sessionID !== this.state.sessionID) return;
 
     // The native stream type union is slightly narrower than the durable log,
     // so switch on the raw string to tolerate additional event types.
     const type: string = (event as { type: string }).type;
+
+    // Server-wide events are not tied to the active session and must be handled
+    // before the active-session filter below.
+    switch (type) {
+      case "model.updated":
+      case "provider.updated":
+      case "agent.updated":
+      case "models-dev.refreshed":
+        // The model/provider catalog changed (including the initial snapshot
+        // settling after server start) — reload it.
+        void this.loadCatalog({ attempts: 2, quiet: true });
+        return;
+      case "session.created":
+      case "session.deleted":
+      case "session.moved":
+        this.scheduleSessionsReload();
+        return;
+      case "session.renamed":
+        if (sessionID && sessionID === this.state.sessionID) {
+          this.patch({ sessionTitle: (data.title as string) ?? this.state.sessionTitle });
+        }
+        this.scheduleSessionsReload();
+        return;
+    }
+
+    // Ignore events that do not belong to the active session. While a new chat
+    // is being created the active id is undefined, so stale events are dropped.
+    if (sessionID && sessionID !== this.state.sessionID) return;
+
     switch (type) {
       case "session.text.started":
         this.ensureAssistant(data.assistantMessageID as string);
@@ -384,14 +508,6 @@ export class SessionController {
         this.patch({ busy: false, activity: undefined });
         void this.reconcileFromServer();
         break;
-      case "model.updated":
-      case "provider.updated":
-      case "agent.updated":
-      case "models-dev.refreshed":
-        // The model/provider catalog changed (including the initial snapshot
-        // settling after server start) — reload it.
-        void this.loadCatalog({ attempts: 2, quiet: true });
-        return;
       default:
         return;
     }

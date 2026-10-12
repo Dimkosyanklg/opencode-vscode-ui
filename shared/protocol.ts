@@ -49,6 +49,15 @@ export type UiAgent = {
   mode: string;
 };
 
+export type UiSession = {
+  id: string;
+  title: string;
+  timeCreated: number;
+  timeUpdated: number;
+  model?: ModelRef;
+  cost?: number;
+};
+
 export type TokenUsage = {
   input: number;
   output: number;
@@ -104,6 +113,9 @@ export type UiState = {
   /** The model/provider catalog is being (re)loaded. */
   modelsLoading?: boolean;
   models: UiModel[];
+  /** Recent sessions for this workspace, newest first. */
+  sessions: UiSession[];
+  sessionsLoading?: boolean;
   selectedModel?: ModelRef;
   agents: UiAgent[];
   selectedAgent?: string;
@@ -121,6 +133,9 @@ export type WebviewToHost =
   | { type: "send"; text: string }
   | { type: "abort" }
   | { type: "clearChat" }
+  | { type: "listSessions"; search?: string }
+  | { type: "openSession"; sessionID: string }
+  | { type: "deleteSession"; sessionID: string }
   | { type: "selectModel"; model: ModelRef | null }
   | { type: "selectAgent"; agent: string | null }
   | { type: "refreshModels" }

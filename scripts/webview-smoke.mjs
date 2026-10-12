@@ -35,6 +35,10 @@ const state = {
   models: [{ key: "opencode/big-pickle", ref: { id: "big-pickle", providerID: "opencode" }, name: "Big Pickle", providerID: "opencode", providerName: "opencode", variants: [], capabilities: { tools: true, input: ["text"], output: ["text"] }, limit: { context: 200000, output: 32000 }, status: "active", enabled: true }],
   selectedModel: { id: "big-pickle", providerID: "opencode" },
   agents: [],
+  sessions: [
+    { id: "s1", title: "Sea story writing request", timeCreated: Date.now() - 90000, timeUpdated: Date.now() - 60000, model: { id: "big-pickle", providerID: "opencode" } },
+    { id: "s2", title: "Fix clear chat button", timeCreated: Date.now() - 7200000, timeUpdated: Date.now() - 7000000 },
+  ],
   busy: false,
   messages: [
     { id: "u1", role: "user", time: Date.now(), text: "hello" },
@@ -48,6 +52,16 @@ await new Promise((r) => setTimeout(r, 100));
 const buttons = [...dom.window.document.querySelectorAll("button")];
 console.log("buttons:", buttons.map((b) => b.getAttribute("aria-label") ?? b.className).join(" | "));
 console.log("messages rendered before:", dom.window.document.querySelectorAll(".msg").length);
+
+const history = buttons.find((b) => b.getAttribute("aria-label") === "Chat history");
+console.log("history button present:", Boolean(history));
+history?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 300));
+console.log("posted after history click:", JSON.stringify(posted));
+console.log(
+  "history titles:",
+  [...dom.window.document.querySelectorAll(".history__item-title")].map((e) => e.textContent).join(" | "),
+);
 
 const clear = buttons.find((b) => b.getAttribute("aria-label") === "Clear chat");
 if (!clear) {
