@@ -6,6 +6,10 @@ import type {
   UiAgent,
   UiAttachment,
   UiFileSuggestion,
+  UiForm,
+  UiFormAnswer,
+  UiFormField,
+  UiFormOption,
   UiMessage,
   UiModel,
   UiPart,
@@ -59,6 +63,7 @@ export class SessionController {
       agents: [],
       sessions: [],
       permissions: [],
+      forms: [],
       attachments: [],
       busy: false,
       messages: [],
@@ -80,6 +85,7 @@ export class SessionController {
     this.state.sessions = [];
     this.state.sessionID = undefined;
     this.state.messages = [];
+    this.state.forms = [];
     this.state.attachments = [];
     void this.start();
   }
@@ -217,6 +223,7 @@ export class SessionController {
       sessionTitle: undefined,
       messages: [],
       permissions: [],
+      forms: [],
       attachments: [],
       busy: false,
       activity: undefined,
@@ -352,6 +359,7 @@ export class SessionController {
       sessionTitle: undefined,
       messages: [],
       permissions: [],
+      forms: [],
       attachments: [],
       busy: false,
       activity: undefined,
@@ -374,6 +382,7 @@ export class SessionController {
         selectedAgent: session?.agent ?? this.state.selectedAgent,
       });
       void this.loadPermissions(sessionID);
+      void this.loadForms(sessionID);
     } catch (error) {
       this.log("openSession failed", error);
       this.patch({ error: toMessage(error) });
@@ -396,6 +405,7 @@ export class SessionController {
         sessionTitle: undefined,
         messages: [],
         permissions: [],
+        forms: [],
         attachments: [],
         busy: false,
         activity: undefined,
@@ -435,6 +445,56 @@ export class SessionController {
   private addPermission(permission: UiPermission): void {
     if (this.state.permissions.some((p) => p.id === permission.id)) return;
     this.state.permissions = [...this.state.permissions, permission];
+  }
+
+  // --- questions / forms -------------------------------------------------
+
+  async replyForm(formID: string, answer: UiFormAnswer): Promise<void> {
+    const form = this.state.forms.find((f) => f.id === formID);
+    if (!form) return;
+    // Optimistically drop the prompt; restore it if the reply fails.
+    this.patch({ forms: this.state.forms.filter((f) => f.id !== formID) });
+    try {
+      await this.host.replyForm(form.sessionID, formID, normalizeFormAnswer(answer));
+    } catch (error) {
+      this.log("replyForm failed", error);
+      this.patch({ forms: [...this.state.forms, form], error: toMessage(error) });
+    }
+  }
+
+  async cancelForm(formID: string): Promise<void> {
+    const form = this.state.forms.find((f) => f.id === formID);
+    if (!form) return;
+    this.patch({ forms: this.state.forms.filter((f) => f.id !== formID) });
+    try {
+      await this.host.cancelForm(form.sessionID, formID);
+    } catch (error) {
+      this.log("cancelForm failed", error);
+      this.patch({ forms: [...this.state.forms, form], error: toMessage(error) });
+    }
+  }
+
+  private async loadForms(sessionID: string): Promise<void> {
+    try {
+      const list = await this.host.listForms(sessionID);
+      if (this.state.sessionID !== sessionID) return;
+      const byID = new Map(this.state.forms.map((form) => [form.id, form]));
+      for (const form of (list ?? []).map(toUiForm)) {
+        if (form) byID.set(form.id, form);
+      }
+      this.patch({ forms: [...byID.values()] });
+    } catch (error) {
+      this.log("loadForms failed", error);
+    }
+  }
+
+  private addForm(form: UiForm): void {
+    if (this.state.forms.some((f) => f.id === form.id)) return;
+    this.state.forms = [...this.state.forms, form];
+  }
+
+  private removeForm(formID: string): void {
+    this.state.forms = this.state.forms.filter((f) => f.id !== formID);
   }
 
   private scheduleSessionsReload(): void {
@@ -512,7 +572,7 @@ export class SessionController {
   async abort(): Promise<void> {
     if (!this.state.sessionID) return;
     await this.host.interrupt(this.state.sessionID).catch((e) => this.log("interrupt failed", e));
-    this.patch({ busy: false, activity: undefined });
+    this.patch({ busy: false, activity: undefined, forms: [] });
   }
 
   private pushMessage(message: UiMessage) {
@@ -578,6 +638,21 @@ export class SessionController {
           this.patch({ sessionTitle: (data.title as string) ?? this.state.sessionTitle });
         }
         this.scheduleSessionsReload();
+        return;
+      case "form.created": {
+        const form = toUiForm(data.form);
+        if (form && form.sessionID && form.sessionID === this.state.sessionID) {
+          this.addForm(form);
+          this.emit(this.state);
+        }
+        return;
+      }
+      case "form.replied":
+      case "form.cancelled":
+        if (!sessionID || sessionID === this.state.sessionID) {
+          this.removeForm(String(data.id ?? ""));
+          this.emit(this.state);
+        }
         return;
     }
 
@@ -668,12 +743,15 @@ export class SessionController {
         break;
       }
       case "session.execution.succeeded":
-      case "session.execution.interrupted":
         this.patch({ busy: false, activity: undefined });
         void this.reconcileFromServer();
         break;
+      case "session.execution.interrupted":
+        this.patch({ busy: false, activity: undefined, forms: [] });
+        void this.reconcileFromServer();
+        break;
       case "session.execution.failed":
-        this.patch({ busy: false, activity: undefined, error: structuredError(data.error) });
+        this.patch({ busy: false, activity: undefined, forms: [], error: structuredError(data.error) });
         void this.reconcileFromServer();
         break;
       case "session.idle":
@@ -995,6 +1073,73 @@ function toUiPermission(raw: unknown): UiPermission {
     message: typeof r.message === "string" ? r.message : undefined,
     tool: source && typeof source.id === "string" ? source.id : undefined,
   };
+}
+
+/** Map a server form (the `question` tool uses one) into the UI shape. */
+function toUiForm(raw: unknown): UiForm | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const form = raw as {
+    id?: unknown;
+    sessionID?: unknown;
+    title?: unknown;
+    metadata?: unknown;
+    fields?: unknown;
+  };
+  if (typeof form.id !== "string" || !Array.isArray(form.fields)) return undefined;
+
+  const fields: UiFormField[] = [];
+  for (const rawField of form.fields) {
+    if (!rawField || typeof rawField !== "object") continue;
+    const field = rawField as Record<string, unknown>;
+    if (field.type !== "string" && field.type !== "multiselect") continue;
+    const options: UiFormOption[] = Array.isArray(field.options)
+      ? field.options
+          .filter((option): option is Record<string, unknown> => Boolean(option) && typeof option === "object")
+          .map((option) => ({
+            value: String(option.value ?? ""),
+            label: String(option.label ?? option.value ?? ""),
+            description: typeof option.description === "string" ? option.description : undefined,
+          }))
+          .filter((option) => option.value.length > 0)
+      : [];
+    fields.push({
+      key: String(field.key ?? ""),
+      type: field.type,
+      title: typeof field.title === "string" ? field.title : undefined,
+      description: typeof field.description === "string" ? field.description : undefined,
+      required: field.required === true,
+      custom: field.custom === true,
+      options,
+      defaultValue: typeof field.default === "string" ? field.default : undefined,
+      defaultValues: Array.isArray(field.default) ? field.default.map(String) : undefined,
+    });
+  }
+  if (!fields.length) return undefined;
+
+  const metadata = (form.metadata ?? {}) as Record<string, unknown>;
+  return {
+    id: form.id,
+    sessionID: typeof form.sessionID === "string" ? form.sessionID : "",
+    title: typeof form.title === "string" ? form.title : "Question",
+    kind: typeof metadata.kind === "string" ? metadata.kind : undefined,
+    fields,
+  };
+}
+
+/** Keep only non-empty answers; single-select values stay strings. */
+function normalizeFormAnswer(answer: UiFormAnswer): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {};
+  for (const [key, value] of Object.entries(answer ?? {})) {
+    if (!key) continue;
+    if (Array.isArray(value)) {
+      const values = value.map((item) => String(item).trim()).filter(Boolean);
+      if (values.length) out[key] = values;
+      continue;
+    }
+    const text = String(value ?? "").trim();
+    if (text) out[key] = text;
+  }
+  return out;
 }
 
 function normalizeTokens(value: unknown): TokenUsage | undefined {

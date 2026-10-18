@@ -84,6 +84,43 @@ export type UiAttachment = {
 
 export type PermissionDecision = "once" | "always" | "reject";
 
+/** An option offered by a form question. */
+export type UiFormOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
+/**
+ * A form field. The `question` tool produces single-select (`string` with
+ * options) and multi-select fields; a free-form answer is allowed when
+ * `custom` is set.
+ */
+export type UiFormField = {
+  key: string;
+  type: "string" | "multiselect";
+  title?: string;
+  description?: string;
+  required?: boolean;
+  custom?: boolean;
+  options: UiFormOption[];
+  defaultValue?: string;
+  defaultValues?: string[];
+};
+
+/** A pending form/question request from the agent (the `question` tool). */
+export type UiForm = {
+  id: string;
+  sessionID: string;
+  title: string;
+  /** `metadata.kind`; the question tool reports "question". */
+  kind?: string;
+  fields: UiFormField[];
+};
+
+/** Answers keyed by field key: a string for single-select, an array for multi. */
+export type UiFormAnswer = Record<string, string | string[]>;
+
 export type UiPermission = {
   id: string;
   sessionID: string;
@@ -154,6 +191,8 @@ export type UiState = {
   sessionsLoading?: boolean;
   /** Pending permission requests for the active session. */
   permissions: UiPermission[];
+  /** Pending questions/forms from the active session. */
+  forms: UiForm[];
   /** Files staged for the next prompt. */
   attachments: UiAttachment[];
   selectedModel?: ModelRef;
@@ -177,6 +216,8 @@ export type WebviewToHost =
   | { type: "openSession"; sessionID: string }
   | { type: "deleteSession"; sessionID: string }
   | { type: "replyPermission"; requestID: string; decision: PermissionDecision }
+  | { type: "replyForm"; formID: string; answer: UiFormAnswer }
+  | { type: "cancelForm"; formID: string }
   | { type: "removeAttachment"; uri: string; name: string }
   | { type: "searchFiles"; query: string }
   | { type: "selectModel"; model: ModelRef | null }

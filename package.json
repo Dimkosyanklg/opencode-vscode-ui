@@ -102,7 +102,7 @@
     "package": "npm run build && vsce package"
   },
   "dependencies": {
-    "@opencode/client": "2.0.27"
+    "@opencode/client": "2.0.32"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

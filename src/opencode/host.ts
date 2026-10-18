@@ -187,6 +187,18 @@ export class OpenCodeHost {
     return this.c.permission.list({ sessionID });
   }
 
+  async listForms(sessionID: string) {
+    return this.c.session.form.list({ sessionID });
+  }
+
+  async replyForm(sessionID: string, formID: string, answer: Record<string, string | string[]>) {
+    await this.c.session.form.reply({ sessionID, formID, answer });
+  }
+
+  async cancelForm(sessionID: string, formID: string, message?: string) {
+    await this.c.session.form.cancel({ sessionID, formID, message });
+  }
+
   async replyPermission(
     sessionID: string,
     requestID: string,

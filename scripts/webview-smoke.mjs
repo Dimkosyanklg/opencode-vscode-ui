@@ -200,6 +200,86 @@ plan?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelab
 await new Promise((r) => setTimeout(r, 100));
 console.log("posted after agent:", JSON.stringify(posted.slice(-1)));
 
+// --- question prompt ---------------------------------------------------
+// The question tool arrives as a form with one or more fields; pick an
+// option, advance, add a multi-select answer plus a custom one, and submit.
+dom.window.dispatchEvent(
+  new dom.window.MessageEvent("message", {
+    data: {
+      type: "state",
+      state: {
+        ...state,
+        forms: [
+          {
+            id: "f1",
+            sessionID: "s1",
+            title: "Questions",
+            kind: "question",
+            fields: [
+              {
+                key: "q0",
+                type: "string",
+                title: "Approach",
+                description: "Which approach should I take?",
+                custom: true,
+                options: [
+                  { value: "fast", label: "Fast", description: "Ship quickly" },
+                  { value: "thorough", label: "Thorough" },
+                ],
+              },
+              {
+                key: "q1",
+                type: "multiselect",
+                title: "Extras",
+                description: "Which extras do you want?",
+                custom: true,
+                options: [
+                  { value: "tests", label: "Tests" },
+                  { value: "docs", label: "Docs" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  }),
+);
+await new Promise((r) => setTimeout(r, 100));
+const clickText = (selector, text) =>
+  [...dom.window.document.querySelectorAll(selector)].find((el) => el.textContent?.includes(text));
+console.log("question text:", dom.window.document.querySelector(".question__text")?.textContent);
+console.log(
+  "question options:",
+  [...dom.window.document.querySelectorAll(".question__option-label")].map((e) => e.textContent).join(" | "),
+);
+clickText(".question__option", "Fast")?.dispatchEvent(
+  new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+);
+await new Promise((r) => setTimeout(r, 50));
+clickText(".question__button--primary", "Next")?.dispatchEvent(
+  new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+);
+await new Promise((r) => setTimeout(r, 50));
+clickText(".question__option", "Tests")?.dispatchEvent(
+  new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+);
+const customInput = dom.window.document.querySelector(".question__custom-input");
+const setInputValue = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
+setInputValue.call(customInput, "Benchmarks");
+customInput.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 50));
+clickText(".question__button--primary", "Submit")?.dispatchEvent(
+  new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+);
+await new Promise((r) => setTimeout(r, 100));
+console.log("posted after question:", JSON.stringify(posted.slice(-1)));
+clickText(".question__button", "Dismiss")?.dispatchEvent(
+  new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }),
+);
+await new Promise((r) => setTimeout(r, 100));
+console.log("posted after dismiss:", JSON.stringify(posted.slice(-1)));
+
 clear.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
 await new Promise((r) => setTimeout(r, 100));
 

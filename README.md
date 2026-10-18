@@ -23,6 +23,10 @@ selector**, backed by the official OpenCode client.
   so it survives restarts of the background service.
 - **Permission prompts**: when OpenCode asks before a shell command or file
   edit, an inline card lets you *Allow once*, *Always allow* or *Deny*.
+- **Inline questions**: when the agent uses the `question` tool, the chat shows
+  its choices (single or multi-select) and a free-form answer field. Answers are
+  sent back to the agent; multiple questions can be stepped through before
+  submitting.
 - **File attachments**: right-click a file (or folder) in the Explorer — or an
   open editor tab — and choose **OpenCode: Add to Chat**. The item is staged as
   a chip above the composer and passed to OpenCode as a `file:` URL when you
@@ -40,7 +44,8 @@ selector**, backed by the official OpenCode client.
 ## Requirements
 
 - VS Code `>= 1.90`
-- OpenCode V2 installed and on `PATH` (this project is built against `opencode v2.0.26`)
+- OpenCode V2 installed and on `PATH` (the client is `@opencode/client` 2.0.32).
+  Inline questions require an OpenCode build with the `question` tool/forms.
 
 ## Getting started
 

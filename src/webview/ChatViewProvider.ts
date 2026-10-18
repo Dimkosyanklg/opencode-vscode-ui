@@ -52,6 +52,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case "replyPermission":
           await this.controller.replyPermission(raw.requestID, raw.decision);
           break;
+        case "replyForm":
+          await this.controller.replyForm(raw.formID, raw.answer);
+          break;
+        case "cancelForm":
+          await this.controller.cancelForm(raw.formID);
+          break;
         case "removeAttachment":
           this.controller.removeAttachment(raw.uri, raw.name);
           break;

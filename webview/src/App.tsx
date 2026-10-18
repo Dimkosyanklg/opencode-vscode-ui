@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { ModelRef, PermissionDecision, UiAttachment, UiState } from "../../shared/protocol.js";
+import type { ModelRef, PermissionDecision, UiAttachment, UiFormAnswer, UiState } from "../../shared/protocol.js";
 import { AgentPicker } from "./components/AgentPicker.js";
 import { Composer, type ComposerHandle } from "./components/Composer.js";
 import { HistoryPicker } from "./components/HistoryPicker.js";
 import { MessageList } from "./components/MessageList.js";
 import { ModelPicker } from "./components/ModelPicker.js";
 import { PermissionPrompt } from "./components/PermissionPrompt.js";
+import { QuestionPrompt } from "./components/QuestionPrompt.js";
 import { onHostMessage, vscode } from "./vscode.js";
 
 export function App(): React.ReactElement {
@@ -59,6 +60,14 @@ export function App(): React.ReactElement {
 
   const replyPermission = useCallback((requestID: string, decision: PermissionDecision) => {
     vscode().postMessage({ type: "replyPermission", requestID, decision });
+  }, []);
+
+  const replyForm = useCallback((formID: string, answer: UiFormAnswer) => {
+    vscode().postMessage({ type: "replyForm", formID, answer });
+  }, []);
+
+  const cancelForm = useCallback((formID: string) => {
+    vscode().postMessage({ type: "cancelForm", formID });
   }, []);
 
   const removeAttachment = useCallback((attachment: UiAttachment) => {
@@ -141,6 +150,8 @@ export function App(): React.ReactElement {
       </main>
 
       <PermissionPrompt permissions={state.permissions ?? []} onReply={replyPermission} />
+
+      <QuestionPrompt forms={state.forms ?? []} onReply={replyForm} onCancel={cancelForm} />
 
       <Composer
         ref={composer}
