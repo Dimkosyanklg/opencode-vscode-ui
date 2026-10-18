@@ -5,6 +5,7 @@ import type {
   ToolStatus,
   UiAgent,
   UiAttachment,
+  UiFileSuggestion,
   UiMessage,
   UiModel,
   UiPart,
@@ -261,6 +262,17 @@ export class SessionController {
     });
   }
 
+  /** Resolve a partial `@`-mention to workspace files for the composer picker. */
+  async searchFiles(query: string): Promise<UiFileSuggestion[]> {
+    if (this.state.status !== "ready") return [];
+    try {
+      return await this.host.findFiles(this.workspace, query, 20);
+    } catch (error) {
+      this.log("searchFiles failed", error);
+      return [];
+    }
+  }
+
   private async toAttachment(
     uri: string,
     range?: { start: number; end: number },
@@ -464,11 +476,12 @@ export class SessionController {
 
     try {
       const sessionID = await this.ensureSession();
-      const inbox = await this.host.prompt(
-        sessionID,
-        trimmed,
-        files.map((a) => ({ uri: a.uri, name: a.name.replace(/\/$/, "") })),
-      );
+      const mentions = await extractMentions(trimmed, this.workspace);
+      const promptFiles = dedupePromptFiles([
+        ...files.map((a) => ({ uri: a.uri, name: a.name.replace(/\/$/, "") })),
+        ...mentions,
+      ]);
+      const inbox = await this.host.prompt(sessionID, trimmed, promptFiles);
       const realId = inbox?.id;
       if (realId && realId !== tempId) {
         userMessage.id = realId;
@@ -1018,6 +1031,60 @@ function resolveAttachment(raw: string): { fsPath: string; uri: string } | undef
     return { fsPath: raw, uri: pathToFileURL(raw).toString() };
   }
   return undefined;
+}
+
+type PromptFile = {
+  uri: string;
+  name?: string;
+  mention?: { start: number; end: number; text: string };
+};
+
+/** Keep the first occurrence of each file so a mentioned+attached file is sent once. */
+function dedupePromptFiles(files: PromptFile[]): PromptFile[] {
+  const seen = new Set<string>();
+  return files.filter((file) => {
+    if (seen.has(file.uri)) return false;
+    seen.add(file.uri);
+    return true;
+  });
+}
+
+/**
+ * Resolve `@path` tokens in a prompt to workspace files. Only tokens that map
+ * to an existing file inside the workspace are returned, so decorators, email
+ * addresses and prose are ignored. Positions are relative to `text`.
+ */
+async function extractMentions(text: string, workspace: string): Promise<PromptFile[]> {
+  const pattern = /(^|\s)@([^\s@]+)/g;
+  const files: PromptFile[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text))) {
+    const relative = match[2];
+    const start = match.index + match[1].length;
+    const end = start + relative.length + 1;
+    const resolved = await resolveMention(workspace, relative);
+    if (!resolved) continue;
+    files.push({
+      uri: pathToFileURL(resolved).toString(),
+      name: relative,
+      mention: { start, end, text: text.slice(start, end) },
+    });
+  }
+  return files;
+}
+
+/** Resolve a workspace-relative mention; reject paths that escape the workspace. */
+async function resolveMention(workspace: string, relative: string): Promise<string | undefined> {
+  const root = path.resolve(workspace);
+  const candidate = path.resolve(root, relative);
+  const rel = path.relative(root, candidate);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
+  try {
+    const stats = await fs.promises.stat(candidate);
+    return stats.isFile() ? candidate : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function delay(ms: number): Promise<void> {

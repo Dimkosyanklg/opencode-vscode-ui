@@ -27,6 +27,9 @@ selector**, backed by the official OpenCode client.
 - **Selection to chat**: select lines in the editor and right-click →
   **OpenCode: Add Selection to Chat** to stage them as a chip labelled with the
   file path and line range (for example `extension.ts:42-58`).
+- **`@`-mentions**: type `@` in the composer to search workspace files and
+  reference one inline (for example `explain @src/session/SessionController.ts`).
+  Matched files are resolved and attached to the prompt automatically.
 - Connects to OpenCode through the official `@opencode/client`, using
   `Service.ensure()` which discovers or starts the local `opencode serve`
   background service and handles authentication — the same path the TUI uses.
@@ -69,6 +72,15 @@ stages the file as a chip labelled with the selected line range (for example
 itself when you send, so the model has the surrounding context; remove the chip
 with its × to drop it before sending.
 
+### Mentioning files with `@`
+
+Type `@` in the composer and keep typing to filter workspace files. Use
+<kbd>↑</kbd>/<kbd>↓</kbd> to move, <kbd>Enter</kbd>/<kbd>Tab</kbd> to insert, or
+click an item. The token is inserted as `@relative/path`; on send, every token
+that resolves to a file inside the workspace is attached to the prompt
+automatically. The picker uses OpenCode's own `file.find` index, so it follows
+the same ignore rules as the agent.
+
 ## Project layout
 
 ```
@@ -97,5 +109,5 @@ to change.
 - [ ] Agent selector (build / plan / …)
 - [ ] Inline diffs for file edits (`vcs.diff`, tool file contents)
 - [ ] Rename sessions and group history by date
-- [ ] `@`-mentions for files and skills, image attachments
+- [ ] `@`-mentions for skills, image attachments
 - [ ] Slash commands and compaction

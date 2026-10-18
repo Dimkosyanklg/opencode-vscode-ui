@@ -139,6 +139,47 @@ await new Promise((r) => setTimeout(r, 100));
 console.log("posted after remove:", JSON.stringify(posted.slice(-1)));
 console.log("remove buttons:", removeButtons.length);
 
+// --- @-mentions --------------------------------------------------------
+// Typing `@query` must ask the host for files, then Enter picks the first
+// suggestion and inserts `@path` into the draft.
+const input = dom.window.document.querySelector(".composer__input");
+const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, "value").set;
+setValue.call(input, "@src");
+input.setSelectionRange(4, 4);
+input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 250));
+console.log("search posted:", JSON.stringify(posted.filter((m) => m.type === "searchFiles")));
+
+dom.window.dispatchEvent(
+  new dom.window.MessageEvent("message", {
+    data: {
+      type: "fileSuggestions",
+      query: "src",
+      files: [
+        { path: "src/extension.ts", name: "extension.ts" },
+        { path: "package.json", name: "package.json" },
+        { path: "README.md", name: "README.md" },
+        { path: "media/opencode.svg", name: "opencode.svg" },
+      ],
+    },
+  }),
+);
+await new Promise((r) => setTimeout(r, 100));
+console.log(
+  "mention items:",
+  [...dom.window.document.querySelectorAll(".mentions__item .mentions__name")].map((e) => e.textContent).join(" | "),
+);
+console.log(
+  "mention icon colors:",
+  [...dom.window.document.querySelectorAll(".mentions__item")]
+    .map((item) => item.querySelector(".mentions__icon svg path")?.getAttribute("stroke"))
+    .join(" | "),
+);
+
+input.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 100));
+console.log("composer after mention:", JSON.stringify(input.value));
+
 clear.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
 await new Promise((r) => setTimeout(r, 100));
 

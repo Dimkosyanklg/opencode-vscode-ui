@@ -58,6 +58,14 @@ export type UiSession = {
   cost?: number;
 };
 
+/** A workspace file offered by the `@`-mention autocomplete. */
+export type UiFileSuggestion = {
+  /** Workspace-relative path, e.g. `src/session/SessionController.ts`. */
+  path: string;
+  /** Base name shown in the picker. */
+  name: string;
+};
+
 /** A file staged for a prompt, shown as a chip above the composer. */
 export type UiAttachment = {
   /** The `file:` URL passed to OpenCode. */
@@ -170,6 +178,7 @@ export type WebviewToHost =
   | { type: "deleteSession"; sessionID: string }
   | { type: "replyPermission"; requestID: string; decision: PermissionDecision }
   | { type: "removeAttachment"; uri: string; name: string }
+  | { type: "searchFiles"; query: string }
   | { type: "selectModel"; model: ModelRef | null }
   | { type: "selectAgent"; agent: string | null }
   | { type: "refreshModels" }
@@ -178,4 +187,6 @@ export type WebviewToHost =
 /** Messages pushed from the extension host to the webview. */
 export type HostToWebview =
   | { type: "state"; state: UiState }
-  | { type: "focusInput" };
+  | { type: "focusInput" }
+  /** Results for a `searchFiles` request; `query` echoes the request. */
+  | { type: "fileSuggestions"; query: string; files: UiFileSuggestion[] };

@@ -1,7 +1,7 @@
 import { OpenCode } from "@opencode/client";
 import { Service } from "@opencode/client/service";
 import type { Endpoint } from "@opencode/client/service";
-import type { ModelRef, UiAgent, UiModel } from "../../shared/protocol.js";
+import type { ModelRef, UiAgent, UiFileSuggestion, UiModel } from "../../shared/protocol.js";
 
 type Client = ReturnType<typeof OpenCode.make>;
 export type OpenCodeEvent = Awaited<ReturnType<Client["event"]["subscribe"]>> extends AsyncIterable<infer T>
@@ -117,8 +117,32 @@ export class OpenCodeHost {
     await this.c.session.switchAgent({ sessionID, agent });
   }
 
-  async prompt(sessionID: string, text: string, files?: Array<{ uri: string; name?: string }>) {
+  async prompt(
+    sessionID: string,
+    text: string,
+    files?: Array<{
+      uri: string;
+      name?: string;
+      mention?: { start: number; end: number; text: string };
+    }>,
+  ) {
     return this.c.session.prompt({ sessionID, text, files });
+  }
+
+  /** Fuzzy file lookup used by the composer's `@`-mention picker. */
+  async findFiles(directory: string, query: string, limit = 20): Promise<UiFileSuggestion[]> {
+    const res = await this.c.file.find({
+      location: { directory },
+      query,
+      type: "file",
+      limit,
+    });
+    return (res.data ?? [])
+      .filter((entry) => entry.type === "file")
+      .map((entry) => {
+        const filePath = entry.path.split("\\").join("/").replace(/^\.\//, "");
+        return { path: filePath, name: filePath.split("/").pop() ?? filePath };
+      });
   }
 
   async interrupt(sessionID: string) {

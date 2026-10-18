@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { UiMessage, UiPart } from "../../../shared/protocol.js";
+import { DirectoryIcon, FileIcon } from "./FileIcon.js";
 import { Markdown } from "./Markdown.js";
 import { ToolCard } from "./ToolCard.js";
 
@@ -15,6 +16,13 @@ export function Message({ message }: { message: UiMessage }): React.ReactElement
                 key={`${attachment.uri}-${index}`}
                 title={attachment.detail ?? attachment.name}
               >
+                <span className="attachment__icon" aria-hidden="true">
+                  {attachment.isDirectory ? (
+                    <DirectoryIcon size={12} />
+                  ) : (
+                    <FileIcon name={attachment.name} size={12} />
+                  )}
+                </span>
                 <span className="attachment__name">{attachment.name}</span>
               </span>
             ))}

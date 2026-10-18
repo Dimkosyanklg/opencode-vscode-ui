@@ -55,6 +55,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case "removeAttachment":
           this.controller.removeAttachment(raw.uri, raw.name);
           break;
+        case "searchFiles": {
+          const files = await this.controller.searchFiles(raw.query);
+          this.post({ type: "fileSuggestions", query: raw.query, files });
+          break;
+        }
         case "selectModel":
           await this.controller.selectModel(raw.model);
           break;
