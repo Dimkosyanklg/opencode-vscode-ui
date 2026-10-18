@@ -20,6 +20,13 @@ selector**, backed by the official OpenCode client.
   so it survives restarts of the background service.
 - **Permission prompts**: when OpenCode asks before a shell command or file
   edit, an inline card lets you *Allow once*, *Always allow* or *Deny*.
+- **File attachments**: right-click a file (or folder) in the Explorer — or an
+  open editor tab — and choose **OpenCode: Add to Chat**. The item is staged as
+  a chip above the composer and passed to OpenCode as a `file:` URL when you
+  send, so text and image files are read directly by the model.
+- **Selection to chat**: select lines in the editor and right-click →
+  **OpenCode: Add Selection to Chat** to stage them as a chip labelled with the
+  file path and line range (for example `extension.ts:42-58`).
 - Connects to OpenCode through the official `@opencode/client`, using
   `Service.ensure()` which discovers or starts the local `opencode serve`
   background service and handles authentication — the same path the TUI uses.
@@ -44,6 +51,23 @@ For development with rebuilds:
 ```sh
 npm run watch      # esbuild + vite in watch mode
 ```
+
+### Adding files to chat
+
+Right-click one or more files or folders in the Explorer (or on an editor tab)
+and choose **OpenCode: Add to Chat**. The extension validates each path, reveals
+the OpenCode sidebar and stages the items as attachments above the composer.
+Remove a chip with its × before sending, or send with empty text to pass the
+files on their own.
+
+### Adding a code selection to chat
+
+Select one or more ranges in the editor, open the right-click menu and choose
+**OpenCode: Add Selection to Chat**. The extension reveals the sidebar and
+stages the file as a chip labelled with the selected line range (for example
+`extension.ts:42-58`), just like a file attachment. OpenCode reads the file
+itself when you send, so the model has the surrounding context; remove the chip
+with its × to drop it before sending.
 
 ## Project layout
 

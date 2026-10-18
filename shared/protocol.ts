@@ -58,6 +58,22 @@ export type UiSession = {
   cost?: number;
 };
 
+/** A file staged for a prompt, shown as a chip above the composer. */
+export type UiAttachment = {
+  /** The `file:` URL passed to OpenCode. */
+  uri: string;
+  /** Label shown on the chip; a selection reads `foo.ts:12-30`. */
+  name: string;
+  /** Workspace-relative path (or absolute path) for the tooltip. */
+  detail?: string;
+  /** The attachment points at a directory. */
+  isDirectory?: boolean;
+  /** First line of a code selection (1-based), when the chip came from one. */
+  lineStart?: number;
+  /** Last line of a code selection (1-based), when the chip came from one. */
+  lineEnd?: number;
+};
+
 export type PermissionDecision = "once" | "always" | "reject";
 
 export type UiPermission = {
@@ -96,7 +112,7 @@ export type UiPart =
   | { kind: "compaction"; text: string };
 
 export type UiMessage =
-  | { id: string; role: "user"; time: number; text: string }
+  | { id: string; role: "user"; time: number; text: string; attachments?: UiAttachment[] }
   | {
       id: string;
       role: "assistant";
@@ -130,6 +146,8 @@ export type UiState = {
   sessionsLoading?: boolean;
   /** Pending permission requests for the active session. */
   permissions: UiPermission[];
+  /** Files staged for the next prompt. */
+  attachments: UiAttachment[];
   selectedModel?: ModelRef;
   agents: UiAgent[];
   selectedAgent?: string;
@@ -151,6 +169,7 @@ export type WebviewToHost =
   | { type: "openSession"; sessionID: string }
   | { type: "deleteSession"; sessionID: string }
   | { type: "replyPermission"; requestID: string; decision: PermissionDecision }
+  | { type: "removeAttachment"; uri: string; name: string }
   | { type: "selectModel"; model: ModelRef | null }
   | { type: "selectAgent"; agent: string | null }
   | { type: "refreshModels" }

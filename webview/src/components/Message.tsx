@@ -7,7 +7,20 @@ export function Message({ message }: { message: UiMessage }): React.ReactElement
   if (message.role === "user") {
     return (
       <div className="msg msg--user">
-        <div className="msg__bubble">{message.text}</div>
+        {message.attachments && message.attachments.length > 0 ? (
+          <div className="msg__attachments">
+            {message.attachments.map((attachment, index) => (
+              <span
+                className="attachment attachment--static"
+                key={`${attachment.uri}-${index}`}
+                title={attachment.detail ?? attachment.name}
+              >
+                <span className="attachment__name">{attachment.name}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {message.text ? <div className="msg__bubble">{message.text}</div> : null}
       </div>
     );
   }

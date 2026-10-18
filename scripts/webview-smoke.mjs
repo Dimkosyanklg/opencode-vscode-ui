@@ -83,6 +83,62 @@ if (!clear) {
 }
 console.log("disabled:", clear.disabled);
 
+// --- attachments -------------------------------------------------------
+// The host stages files (from the Explorer "Add to Chat" command) and pushes
+// a new state; verify the composer and message chips render.
+dom.window.dispatchEvent(
+  new dom.window.MessageEvent("message", {
+    data: {
+      type: "state",
+      state: {
+        ...state,
+        attachments: [
+          { uri: "file:///G:/opencode-vscode-ui/README.md", name: "README.md", detail: "README.md" },
+          {
+            uri: "file:///G:/opencode-vscode-ui/src/extension.ts",
+            name: "extension.ts:41-48",
+            detail: "src/extension.ts",
+            lineStart: 41,
+            lineEnd: 48,
+          },
+        ],
+        messages: [
+          {
+            id: "u2",
+            role: "user",
+            time: Date.now(),
+            text: "",
+            attachments: [{ uri: "file:///G:/opencode-vscode-ui/src/App.tsx", name: "App.tsx", detail: "src/App.tsx" }],
+          },
+        ],
+      },
+    },
+  }),
+);
+await new Promise((r) => setTimeout(r, 100));
+console.log(
+  "composer chips:",
+  [...dom.window.document.querySelectorAll(".composer__attachments .attachment__name")].map((e) => e.textContent).join(" | "),
+);
+console.log(
+  "message chips:",
+  [...dom.window.document.querySelectorAll(".msg__attachments .attachment__name")].map((e) => e.textContent).join(" | "),
+);
+
+// --- remove a selection chip -------------------------------------------
+// The host stages a code selection as an attachment labelled with its line
+// range; removing it must target that specific chip, not the whole file.
+const removeButtons = [...dom.window.document.querySelectorAll(".composer__attachments .attachment__remove")];
+const selectionChip = [...dom.window.document.querySelectorAll(".composer__attachments .attachment")].find((c) =>
+  c.querySelector(".attachment__name")?.textContent?.includes(":"),
+);
+selectionChip
+  ?.querySelector(".attachment__remove")
+  ?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 100));
+console.log("posted after remove:", JSON.stringify(posted.slice(-1)));
+console.log("remove buttons:", removeButtons.length);
+
 clear.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
 await new Promise((r) => setTimeout(r, 100));
 

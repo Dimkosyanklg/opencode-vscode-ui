@@ -29,6 +29,27 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("opencode.selectModel", async () => {
       await pickModel(controller);
     }),
+    vscode.commands.registerCommand("opencode.addToChat", async (resource?: vscode.Uri, resources?: vscode.Uri[]) => {
+      const uris = (resources && resources.length ? resources : resource ? [resource] : []).filter(
+        (uri) => uri && uri.scheme === "file",
+      );
+      if (uris.length === 0) return;
+      await controller.attachFiles(uris.map((uri) => uri.toString()));
+      await vscode.commands.executeCommand(`${ChatViewProvider.viewType}.focus`);
+      provider.focusInput();
+    }),
+    vscode.commands.registerCommand("opencode.addSelectionToChat", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+      const ranges = selectionRanges(editor);
+      if (!ranges.length) return;
+      const uri = editor.document.uri.toString();
+      await controller.attachSelections(
+        ranges.map((range) => ({ uri, startLine: range.start, endLine: range.end })),
+      );
+      await vscode.commands.executeCommand(`${ChatViewProvider.viewType}.focus`);
+      provider.focusInput();
+    }),
     vscode.commands.registerCommand("opencode.serverInfo", async () => {
       const state = controller.current;
       if (state.status === "ready" && state.serverUrl) {
@@ -75,6 +96,22 @@ async function pickModel(controller: SessionController): Promise<void> {
   );
   if (!pick) return;
   await controller.selectModel(pick.model as ModelRef);
+}
+
+/**
+ * Collect the 1-based line ranges of every non-empty selection in the editor.
+ * A selection ending at column 0 of the next line does not include that line.
+ */
+function selectionRanges(editor: vscode.TextEditor): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+  for (const selection of editor.selections) {
+    if (selection.isEmpty) continue;
+    const start = selection.start.line + 1;
+    let end = selection.end.line + 1;
+    if (selection.end.character === 0 && selection.end.line > selection.start.line) end -= 1;
+    ranges.push({ start, end });
+  }
+  return ranges;
 }
 
 function currentWorkspace(): string {

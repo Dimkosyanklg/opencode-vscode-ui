@@ -117,8 +117,8 @@ export class OpenCodeHost {
     await this.c.session.switchAgent({ sessionID, agent });
   }
 
-  async prompt(sessionID: string, text: string) {
-    return this.c.session.prompt({ sessionID, text });
+  async prompt(sessionID: string, text: string, files?: Array<{ uri: string; name?: string }>) {
+    return this.c.session.prompt({ sessionID, text, files });
   }
 
   async interrupt(sessionID: string) {

@@ -45,6 +45,14 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "opencode.addToChat",
+        "title": "OpenCode: Add to Chat"
+      },
+      {
+        "command": "opencode.addSelectionToChat",
+        "title": "OpenCode: Add Selection to Chat"
+      },
+      {
         "command": "opencode.serverInfo",
         "title": "OpenCode: Server Info"
       }
@@ -60,6 +68,27 @@
           "command": "opencode.selectModel",
           "when": "view == opencode.chat",
           "group": "navigation@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "opencode.addToChat",
+          "when": "resourceScheme == file",
+          "group": "opencode"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "opencode.addToChat",
+          "when": "resourceScheme == file",
+          "group": "opencode"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "opencode.addSelectionToChat",
+          "when": "editorHasSelection && resourceScheme == file",
+          "group": "opencode"
         }
       ]
     }

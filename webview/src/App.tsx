@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { ModelRef, PermissionDecision, UiState } from "../../shared/protocol.js";
+import type { ModelRef, PermissionDecision, UiAttachment, UiState } from "../../shared/protocol.js";
 import { Composer, type ComposerHandle } from "./components/Composer.js";
 import { HistoryPicker } from "./components/HistoryPicker.js";
 import { MessageList } from "./components/MessageList.js";
@@ -54,6 +54,10 @@ export function App(): React.ReactElement {
 
   const replyPermission = useCallback((requestID: string, decision: PermissionDecision) => {
     vscode().postMessage({ type: "replyPermission", requestID, decision });
+  }, []);
+
+  const removeAttachment = useCallback((attachment: UiAttachment) => {
+    vscode().postMessage({ type: "removeAttachment", uri: attachment.uri, name: attachment.name });
   }, []);
 
   if (!state) {
@@ -126,7 +130,15 @@ export function App(): React.ReactElement {
 
       <PermissionPrompt permissions={state.permissions ?? []} onReply={replyPermission} />
 
-      <Composer ref={composer} disabled={state.status !== "ready"} busy={state.busy} onSend={send} onAbort={abort} />
+      <Composer
+        ref={composer}
+        disabled={state.status !== "ready"}
+        busy={state.busy}
+        attachments={state.attachments ?? []}
+        onRemoveAttachment={removeAttachment}
+        onSend={send}
+        onAbort={abort}
+      />
     </div>
   );
 }

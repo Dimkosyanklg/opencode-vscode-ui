@@ -4,6 +4,7 @@ import type {
   TokenUsage,
   ToolStatus,
   UiAgent,
+  UiAttachment,
   UiMessage,
   UiModel,
   UiPart,
@@ -11,6 +12,9 @@ import type {
   UiSession,
   UiState,
 } from "../../shared/protocol.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { OpenCodeHost, type OpenCodeEvent } from "../opencode/host.js";
 
 type Emit = (state: UiState) => void;
@@ -54,6 +58,7 @@ export class SessionController {
       agents: [],
       sessions: [],
       permissions: [],
+      attachments: [],
       busy: false,
       messages: [],
     };
@@ -74,6 +79,7 @@ export class SessionController {
     this.state.sessions = [];
     this.state.sessionID = undefined;
     this.state.messages = [];
+    this.state.attachments = [];
     void this.start();
   }
 
@@ -200,10 +206,91 @@ export class SessionController {
       sessionTitle: undefined,
       messages: [],
       permissions: [],
+      attachments: [],
       busy: false,
       activity: undefined,
       error: undefined,
     });
+  }
+
+  // --- attachments -------------------------------------------------------
+
+  /**
+   * Stage files for the composer. Each URI is validated against the file
+   * system so a stale reference (deleted file, unreadable path) never reaches
+   * the prompt.
+   */
+  async attachFiles(uris: string[]): Promise<void> {
+    await this.stageAttachments(uris.map((uri) => ({ uri })));
+  }
+
+  /**
+   * Stage code selections (from the editor context menu) as file attachments.
+   * OpenCode reads a file attachment by URI, so the underlying file is sent
+   * while the chip is labelled with the selected line range.
+   */
+  async attachSelections(selections: Array<{ uri: string; startLine: number; endLine: number }>): Promise<void> {
+    await this.stageAttachments(
+      selections.map((selection) => ({
+        uri: selection.uri,
+        range: { start: selection.startLine, end: selection.endLine },
+      })),
+    );
+  }
+
+  private async stageAttachments(entries: Array<{ uri: string; range?: { start: number; end: number } }>): Promise<void> {
+    if (!entries.length) return;
+    const attachments = [...this.state.attachments];
+    let changed = false;
+    for (const entry of entries) {
+      const attachment = await this.toAttachment(entry.uri, entry.range);
+      if (!attachment) {
+        this.log("file could not be attached", entry.uri);
+        continue;
+      }
+      if (attachments.some((a) => isSameAttachment(a, attachment))) continue;
+      attachments.push(attachment);
+      changed = true;
+    }
+    if (changed) this.patch({ attachments });
+  }
+
+  removeAttachment(uri: string, name: string): void {
+    this.patch({
+      attachments: this.state.attachments.filter((a) => !(a.uri === uri && a.name === name)),
+    });
+  }
+
+  private async toAttachment(
+    uri: string,
+    range?: { start: number; end: number },
+  ): Promise<UiAttachment | undefined> {
+    const resolved = resolveAttachment(uri);
+    if (!resolved) return undefined;
+    let stats: fs.Stats;
+    try {
+      stats = await fs.promises.stat(resolved.fsPath);
+    } catch {
+      return undefined;
+    }
+    if (!stats.isFile() && !stats.isDirectory()) return undefined;
+    const isDirectory = stats.isDirectory();
+    const base = path.basename(resolved.fsPath) || resolved.fsPath;
+    const rangeLabel = range ? `:${range.start}${range.end !== range.start ? `-${range.end}` : ""}` : "";
+    return {
+      uri: resolved.uri,
+      name: isDirectory ? `${base}/` : `${base}${rangeLabel}`,
+      detail: this.relativeDetail(resolved.fsPath),
+      isDirectory,
+      lineStart: range?.start,
+      lineEnd: range?.end,
+    };
+  }
+
+  private relativeDetail(fsPath: string): string {
+    const rel = path.relative(this.workspace, fsPath);
+    if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) return rel.split(path.sep).join("/");
+    return fsPath;
   }
 
   // --- session history ---------------------------------------------------
@@ -243,6 +330,7 @@ export class SessionController {
       sessionTitle: undefined,
       messages: [],
       permissions: [],
+      attachments: [],
       busy: false,
       activity: undefined,
       error: undefined,
@@ -285,6 +373,7 @@ export class SessionController {
         sessionTitle: undefined,
         messages: [],
         permissions: [],
+        attachments: [],
         busy: false,
         activity: undefined,
       });
@@ -357,17 +446,29 @@ export class SessionController {
 
   async send(text: string): Promise<void> {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    const files = this.state.attachments;
+    // A prompt needs either text or at least one attachment.
+    if (!trimmed && files.length === 0) return;
 
     // Show the user's message immediately, before any session round-trip.
     const tempId = `local-${Date.now()}`;
-    const userMessage: UiMessage = { id: tempId, role: "user", time: Date.now(), text: trimmed };
+    const userMessage: UiMessage = {
+      id: tempId,
+      role: "user",
+      time: Date.now(),
+      text: trimmed,
+      attachments: files.length ? files : undefined,
+    };
     this.pushMessage(userMessage);
-    this.patch({ messages: this.state.messages, busy: true, activity: "Thinking…", error: undefined });
+    this.patch({ messages: this.state.messages, attachments: [], busy: true, activity: "Thinking…", error: undefined });
 
     try {
       const sessionID = await this.ensureSession();
-      const inbox = await this.host.prompt(sessionID, trimmed);
+      const inbox = await this.host.prompt(
+        sessionID,
+        trimmed,
+        files.map((a) => ({ uri: a.uri, name: a.name.replace(/\/$/, "") })),
+      );
       const realId = inbox?.id;
       if (realId && realId !== tempId) {
         userMessage.id = realId;
@@ -376,7 +477,8 @@ export class SessionController {
       }
     } catch (error) {
       this.log("prompt failed", error);
-      this.patch({ busy: false, activity: undefined, error: toMessage(error) });
+      // Give the attachments back so the user can retry without re-adding them.
+      this.patch({ busy: false, activity: undefined, attachments: files, error: toMessage(error) });
     }
   }
 
@@ -718,6 +820,7 @@ type ServerMessage = {
   agent?: string;
   model?: unknown;
   content?: unknown;
+  files?: unknown;
 };
 
 function buildMessagesFromServer(
@@ -728,7 +831,13 @@ function buildMessagesFromServer(
   const ordered = [...messages].sort((a, b) => (a.time?.created ?? 0) - (b.time?.created ?? 0));
   for (const m of ordered) {
     if (m.type === "user") {
-      list.push({ id: m.id, role: "user", time: m.time?.created ?? Date.now(), text: m.text ?? "" });
+      list.push({
+        id: m.id,
+        role: "user",
+        time: m.time?.created ?? Date.now(),
+        text: m.text ?? "",
+        attachments: mapServerAttachments(m.files),
+      });
       continue;
     }
     if (m.type === "assistant") {
@@ -767,6 +876,28 @@ function buildMessagesFromServer(
     }
   }
   return { list, builds };
+}
+
+/** Rebuild attachment chips for a user message loaded from the server. */
+function mapServerAttachments(files: unknown): UiAttachment[] | undefined {
+  if (!Array.isArray(files) || files.length === 0) return undefined;
+  const out: UiAttachment[] = [];
+  files.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object") return;
+    const file = raw as { name?: unknown; source?: unknown; data?: unknown; mime?: unknown };
+    const source = file.source as { type?: unknown; uri?: unknown } | undefined;
+    let uri: string | undefined;
+    if (source && source.type === "uri" && typeof source.uri === "string") {
+      uri = source.uri;
+    } else if (typeof file.data === "string") {
+      const mime = typeof file.mime === "string" ? file.mime : "application/octet-stream";
+      uri = `data:${mime};base64,${file.data}`;
+    }
+    if (!uri) return;
+    const name = typeof file.name === "string" && file.name ? file.name : `attachment ${index + 1}`;
+    out.push({ uri, name });
+  });
+  return out.length ? out : undefined;
 }
 
 function mapContentPart(item: Record<string, unknown> | undefined): UiPart | undefined {
@@ -860,6 +991,33 @@ function normalizeRef(value: unknown): ModelRef | undefined {  if (!value || typ
 
 function sameRef(a: ModelRef | undefined, b: ModelRef): boolean {
   return Boolean(a && a.id === b.id && a.providerID === b.providerID);
+}
+
+/** Two attachments are the same when they point at the same file/range. */
+function isSameAttachment(a: UiAttachment, b: UiAttachment): boolean {
+  return Boolean(
+    a.uri === b.uri && a.isDirectory === b.isDirectory && a.lineStart === b.lineStart && a.lineEnd === b.lineEnd,
+  );
+}
+
+/**
+ * Normalize a file reference to an absolute path plus a canonical `file:` URL.
+ * The Explorer context menu supplies `file:` URLs; absolute paths are accepted
+ * as a fallback. Anything else is ignored.
+ */
+function resolveAttachment(raw: string): { fsPath: string; uri: string } | undefined {
+  if (raw.startsWith("file:")) {
+    try {
+      const fsPath = fileURLToPath(raw);
+      return { fsPath, uri: pathToFileURL(fsPath).toString() };
+    } catch {
+      return undefined;
+    }
+  }
+  if (path.isAbsolute(raw)) {
+    return { fsPath: raw, uri: pathToFileURL(raw).toString() };
+  }
+  return undefined;
 }
 
 function delay(ms: number): Promise<void> {
