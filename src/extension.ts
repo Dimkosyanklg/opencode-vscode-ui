@@ -21,7 +21,19 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  statusBar.name = "OpenCode";
+  statusBar.text = "$(comment-discussion) OpenCode";
+  statusBar.tooltip = `Open the OpenCode chat (${process.platform === "darwin" ? "Cmd+Alt+O" : "Ctrl+Alt+O"})`;
+  statusBar.command = "opencode.openChat";
+  statusBar.show();
+  context.subscriptions.push(statusBar);
+
   context.subscriptions.push(
+    vscode.commands.registerCommand("opencode.openChat", async () => {
+      await vscode.commands.executeCommand(`${ChatViewProvider.viewType}.focus`);
+      provider.focusInput();
+    }),
     vscode.commands.registerCommand("opencode.clearChat", async () => {
       await controller.clearChat();
       provider.focusInput();

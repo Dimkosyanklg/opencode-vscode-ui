@@ -47,6 +47,18 @@ selector**, backed by the official OpenCode client.
 - OpenCode V2 installed and on `PATH` (the client is `@opencode/client` 2.0.32).
   Inline questions require an OpenCode build with the `question` tool/forms.
 
+## Opening the chat
+
+After installing the extension, open the chat in any of these ways:
+
+- Click the **OpenCode** icon in the Activity Bar.
+- Click the **OpenCode** item on the right side of the status bar.
+- Click the chat icon in the editor title bar.
+- Run **OpenCode: Open Chat** from the Command Palette
+  (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>).
+- Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>O</kbd>
+  (<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>O</kbd> on macOS).
+
 ## Getting started
 
 ```sh

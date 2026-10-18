@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.2] - 2026-10-18
+
+- Added an **OpenCode: Open Chat** command, status bar entry, editor title
+  button and <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>O</kbd> shortcut
+  (<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>O</kbd> on macOS).
+- The extension now activates on startup so the status bar entry is always
+  available.
+
 ## [0.0.1] - 2026-10-18
 
 First public release.

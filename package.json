@@ -2,7 +2,7 @@
   "name": "opencode-gui-for-vscode",
   "displayName": "Opencode GUI for VSCode",
   "description": "A graphical (Cursor-like) interface for OpenCode inside VS Code.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "dimkosyan",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -33,7 +33,9 @@
     "theme": "dark"
   },
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -54,6 +56,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "opencode.openChat",
+        "title": "OpenCode: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
       {
         "command": "opencode.clearChat",
         "title": "OpenCode: Clear Chat",
@@ -110,9 +117,23 @@
           "when": "editorHasSelection && resourceScheme == file",
           "group": "opencode"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "opencode.openChat",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
       ]
     }
   },
+  "keybindings": [
+    {
+      "command": "opencode.openChat",
+      "key": "ctrl+alt+o",
+      "mac": "cmd+alt+o"
+    }
+  ],
   "scripts": {
     "build": "npm run build:webview && npm run build:extension",
     "build:extension": "node esbuild.mjs",
