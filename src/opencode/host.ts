@@ -81,10 +81,17 @@ export class OpenCodeHost {
     return { models, providers };
   }
 
-  async listAgents(directory: string): Promise<UiAgent[]> {    const res = await this.c.agent.list({ location: { directory } });
-    const agents = (res.data ?? []) as Array<{ id: string; name: string; description?: string; mode: string }>;
+  async listAgents(directory: string): Promise<UiAgent[]> {
+    const res = await this.c.agent.list({ location: { directory } });
+    const agents = (res.data ?? []) as Array<{
+      id: string;
+      name: string;
+      description?: string;
+      mode: string;
+      hidden?: boolean;
+    }>;
     return agents
-      .filter((a) => a.mode !== "subagent")
+      .filter((a) => a.mode !== "subagent" && !a.hidden)
       .map((a) => ({ id: a.id, name: a.name, description: a.description, mode: a.mode }));
   }
 

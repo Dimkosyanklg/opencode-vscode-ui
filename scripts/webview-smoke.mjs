@@ -34,7 +34,11 @@ const state = {
   workspace: "G:\\opencode-vscode-ui",
   models: [{ key: "opencode/big-pickle", ref: { id: "big-pickle", providerID: "opencode" }, name: "Big Pickle", providerID: "opencode", providerName: "opencode", variants: [], capabilities: { tools: true, input: ["text"], output: ["text"] }, limit: { context: 200000, output: 32000 }, status: "active", enabled: true }],
   selectedModel: { id: "big-pickle", providerID: "opencode" },
-  agents: [],
+  agents: [
+    { id: "build", name: "Build", description: "Make changes to the codebase", mode: "primary" },
+    { id: "plan", name: "Plan", description: "Design an approach before coding", mode: "primary" },
+  ],
+  selectedAgent: "build",
   sessions: [
     { id: "s1", title: "Sea story writing request", timeCreated: Date.now() - 90000, timeUpdated: Date.now() - 60000, model: { id: "big-pickle", providerID: "opencode" } },
     { id: "s2", title: "Fix clear chat button", timeCreated: Date.now() - 7200000, timeUpdated: Date.now() - 7000000 },
@@ -179,6 +183,22 @@ console.log(
 input.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
 await new Promise((r) => setTimeout(r, 100));
 console.log("composer after mention:", JSON.stringify(input.value));
+
+// --- agent / mode picker -----------------------------------------------
+const agentButton = dom.window.document.querySelector(".picker--agent .picker__button");
+console.log("agent label:", agentButton?.textContent);
+agentButton?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 100));
+console.log(
+  "agent items:",
+  [...dom.window.document.querySelectorAll(".picker--agent .picker__item-name")].map((e) => e.textContent).join(" | "),
+);
+const plan = [...dom.window.document.querySelectorAll(".picker--agent .picker__item")].find((item) =>
+  item.textContent?.includes("Plan"),
+);
+plan?.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+await new Promise((r) => setTimeout(r, 100));
+console.log("posted after agent:", JSON.stringify(posted.slice(-1)));
 
 clear.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
 await new Promise((r) => setTimeout(r, 100));

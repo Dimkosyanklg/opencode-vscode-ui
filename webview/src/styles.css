@@ -318,6 +318,43 @@ button:disabled {
   color: var(--vscode-descriptionForeground);
 }
 
+/* --- agent / mode picker ---------------------------------------------- */
+
+.picker--agent {
+  flex: 0 0 auto;
+  max-width: 122px;
+}
+
+.picker__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.picker__popover--agent {
+  right: auto;
+  min-width: 220px;
+  max-width: min(280px, calc(100vw - 24px));
+}
+
+.picker__item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.picker__item-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+.picker__item.is-selected .picker__item-icon {
+  color: inherit;
+}
+
 /* --- chat area --------------------------------------------------------- */
 
 .chat {

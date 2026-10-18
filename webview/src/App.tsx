@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelRef, PermissionDecision, UiAttachment, UiState } from "../../shared/protocol.js";
+import { AgentPicker } from "./components/AgentPicker.js";
 import { Composer, type ComposerHandle } from "./components/Composer.js";
 import { HistoryPicker } from "./components/HistoryPicker.js";
 import { MessageList } from "./components/MessageList.js";
@@ -30,6 +31,10 @@ export function App(): React.ReactElement {
 
   const selectModel = useCallback((model: ModelRef | null) => {
     vscode().postMessage({ type: "selectModel", model });
+  }, []);
+
+  const selectAgent = useCallback((agent: string) => {
+    vscode().postMessage({ type: "selectAgent", agent });
   }, []);
 
   const clearChat = useCallback(() => {
@@ -75,6 +80,13 @@ export function App(): React.ReactElement {
     <div className="app">
       <header className="topbar">
         <div className="topbar__row">
+          <AgentPicker
+            agents={state.agents ?? []}
+            selected={state.selectedAgent}
+            loading={state.status === "connecting"}
+            disabled={state.status !== "ready"}
+            onSelect={selectAgent}
+          />
           <ModelPicker
             models={state.models}
             selected={state.selectedModel}

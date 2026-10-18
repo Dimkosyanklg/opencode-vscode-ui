@@ -138,9 +138,11 @@ export class SessionController {
       if (attempt < attempts) await delay(400 * attempt);
     }
 
+    const selectedAgent = this.resolveDefaultAgent(agents);
+
     if (models.length === 0) {
       this.log("model catalog is still empty after retries", lastError ? toMessage(lastError) : "");
-      this.patch({ modelsLoading: false, agents });
+      this.patch({ modelsLoading: false, agents, selectedAgent });
       return;
     }
 
@@ -148,7 +150,15 @@ export class SessionController {
     if (!selected || !models.some((m) => sameRef(m.ref, selected!))) {
       selected = await this.resolveDefaultModel(models);
     }
-    this.patch({ models, agents, selectedModel: selected, modelsLoading: false });
+    this.patch({ models, agents, selectedModel: selected, selectedAgent, modelsLoading: false });
+  }
+
+  /** Keep the user's mode, otherwise prefer Build and fall back to the first agent. */
+  private resolveDefaultAgent(agents: UiAgent[]): string | undefined {
+    if (!agents.length) return this.state.selectedAgent;
+    const current = this.state.selectedAgent;
+    if (current && agents.some((agent) => agent.id === current)) return current;
+    return agents.find((agent) => agent.id === "build")?.id ?? agents[0]?.id;
   }
 
   private async resolveDefaultModel(models: UiModel[]): Promise<ModelRef | undefined> {
@@ -361,6 +371,7 @@ export class SessionController {
         messages: list,
         sessionTitle: session?.title,
         selectedModel: normalizeRef(session?.model) ?? this.state.selectedModel,
+        selectedAgent: session?.agent ?? this.state.selectedAgent,
       });
       void this.loadPermissions(sessionID);
     } catch (error) {
@@ -452,7 +463,10 @@ export class SessionController {
   async selectAgent(id: string | null): Promise<void> {
     this.patch({ selectedAgent: id ?? undefined });
     if (this.state.sessionID && id) {
-      await this.host.switchAgent(this.state.sessionID, id).catch((e) => this.log("switchAgent failed", e));
+      await this.host.switchAgent(this.state.sessionID, id).catch((e) => {
+        this.log("switchAgent failed", e);
+        this.patch({ error: toMessage(e) });
+      });
     }
   }
 
@@ -615,6 +629,9 @@ export class SessionController {
         break;
       case "session.model.selected":
         this.patch({ selectedModel: normalizeRef(data.model) });
+        break;
+      case "session.agent.selected":
+        if (data.agent) this.patch({ selectedAgent: data.agent as string });
         break;
       case "session.step.started": {
         const build = this.ensureAssistant(data.assistantMessageID as string);

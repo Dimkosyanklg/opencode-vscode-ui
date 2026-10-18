@@ -11,6 +11,9 @@ selector**, backed by the official OpenCode client.
 - **Sidebar chat** view in the Activity Bar (`OpenCode` → `Chat`).
 - **Model picker** in the chat header — searchable, grouped by provider, with
   context window and pricing hints.
+- **Mode picker** in the chat header — switch between **Build**, **Plan** and any
+  other primary OpenCode agent. The choice applies to new sessions and is
+  switched live on the active one.
 - **Streaming responses** rendered live from the OpenCode event stream
   (`session.text.delta`), including collapsible reasoning and tool cards.
 - **Tool calls** shown inline (name, argument, collapsible input/output).
@@ -106,7 +109,6 @@ to change.
 
 ## Roadmap
 
-- [ ] Agent selector (build / plan / …)
 - [ ] Inline diffs for file edits (`vcs.diff`, tool file contents)
 - [ ] Rename sessions and group history by date
 - [ ] `@`-mentions for skills, image attachments
