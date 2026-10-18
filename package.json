@@ -5,6 +5,15 @@
   "version": "0.0.1",
   "publisher": "opencode-ui",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dimkosyanklg/opencode-vscode-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Dimkosyanklg/opencode-vscode-ui/issues"
+  },
+  "homepage": "https://github.com/Dimkosyanklg/opencode-vscode-ui#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -12,6 +21,17 @@
     "AI",
     "Other"
   ],
+  "keywords": [
+    "opencode",
+    "ai",
+    "chat",
+    "agent",
+    "cursor"
+  ],
+  "galleryBanner": {
+    "color": "#0b1a2b",
+    "theme": "dark"
+  },
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
