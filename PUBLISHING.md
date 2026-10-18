@@ -44,7 +44,7 @@
    To publish a specific VSIX instead:
 
    ```sh
-   npx vsce publish --packagePath opencode-vscode-ui-<version>.vsix
+   npx vsce publish --packagePath opencode-gui-for-vscode-<version>.vsix
    ```
 
 The extension is usually visible on the Marketplace within a few minutes.

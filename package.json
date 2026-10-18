@@ -1,6 +1,6 @@
 {
-  "name": "opencode-vscode-ui",
-  "displayName": "OpenCode UI",
+  "name": "opencode-gui-for-vscode",
+  "displayName": "Opencode GUI for VSCode",
   "description": "A graphical (Cursor-like) interface for OpenCode inside VS Code.",
   "version": "0.0.1",
   "publisher": "dimkosyan",

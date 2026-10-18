@@ -1,4 +1,4 @@
-# OpenCode UI for VS Code
+# Opencode GUI for VSCode
 
 A graphical (Cursor-like) interface for [OpenCode](https://opencode.ai) inside VS Code,
 so you don't have to work with OpenCode through the terminal.
