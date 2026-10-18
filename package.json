@@ -3,7 +3,7 @@
   "displayName": "OpenCode UI",
   "description": "A graphical (Cursor-like) interface for OpenCode inside VS Code.",
   "version": "0.0.1",
-  "publisher": "opencode-ui",
+  "publisher": "dimkosyan",
   "license": "MIT",
   "icon": "media/icon.png",
   "repository": {

@@ -6,7 +6,7 @@
 
    Sign in at <https://marketplace.visualstudio.com/manage> with a Microsoft
    account and create a publisher. Its ID must match the `publisher` field in
-   `package.json` (currently `opencode-ui`). If you use a different ID, update
+   `package.json` (currently `dimkosyan`). If you use a different ID, update
    `package.json` and re-package.
 
 2. **Create a Personal Access Token (PAT)**
