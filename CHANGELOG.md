@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.3] - 2026-10-21
+
+- Fixed **Failed to start server** on Windows. The OpenCode CLI is now launched
+  via its real `.exe` (npm global or common install paths), falling back to
+  `cmd.exe` for npm `.cmd` shims. Set `OPENCODE_BIN` to override the executable.
+
 ## [0.0.2] - 2026-10-18
 
 - Added an **OpenCode: Open Chat** command, status bar entry, editor title

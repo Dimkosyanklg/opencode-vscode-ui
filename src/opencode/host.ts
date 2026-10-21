@@ -1,6 +1,8 @@
 import { OpenCode } from "@opencode/client";
 import { Service } from "@opencode/client/service";
 import type { Endpoint } from "@opencode/client/service";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { ModelRef, UiAgent, UiFileSuggestion, UiModel } from "../../shared/protocol.js";
 
 type Client = ReturnType<typeof OpenCode.make>;
@@ -37,6 +39,7 @@ export class OpenCodeHost {
     this.connecting = (async () => {
       this.log("ensuring local OpenCode service...");
       const endpoint = await Service.ensure({
+        command: resolveOpencodeCommand(),
         onStart: (reason, previousVersion) => {
           this.log(`starting OpenCode service (${reason}${previousVersion ? `, previous ${previousVersion}` : ""})`);
           onStart?.();
@@ -243,6 +246,60 @@ function toUiModel(m: any, providerName: string): UiModel {
     status: m.status ?? "active",
     enabled: m.enabled ?? true,
   };
+}
+
+/**
+ * Resolve the OpenCode CLI to a command Node can spawn. On Windows the npm
+ * shim is a `.cmd` file, which `spawn()` cannot execute directly, so prefer the
+ * real `.exe` (npm global or common install dirs) and fall back to `cmd.exe /c`.
+ * Set `OPENCODE_BIN` to point at a custom executable.
+ */
+function resolveOpencodeCommand(): string[] {
+  const configured = process.env.OPENCODE_BIN?.trim();
+  if (configured && fs.existsSync(configured)) {
+    if (process.platform === "win32" && /\.(cmd|bat)$/i.test(configured)) {
+      return ["cmd.exe", "/d", "/s", "/c", configured, "serve", "--service"];
+    }
+    return [configured, "serve", "--service"];
+  }
+
+  if (process.platform === "win32") {
+    const candidates: Array<string | undefined> = [
+      process.env.APPDATA &&
+        path.join(process.env.APPDATA, "npm", "node_modules", "@opencode", "cli", "bin", "opencode.exe"),
+      process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "opencode", "bin", "opencode.exe"),
+      process.env.USERPROFILE && path.join(process.env.USERPROFILE, ".opencode", "bin", "opencode.exe"),
+    ];
+    for (const candidate of candidates) {
+      if (candidate && fs.existsSync(candidate)) return [candidate, "serve", "--service"];
+    }
+    const onPath = findExecutableOnPath("opencode");
+    if (onPath) return [onPath, "serve", "--service"];
+    // Let cmd.exe resolve the npm `.cmd` shim from PATH.
+    return ["cmd.exe", "/d", "/s", "/c", "opencode", "serve", "--service"];
+  }
+
+  return ["opencode", "serve", "--service"];
+}
+
+/** Find a spawnable native executable on PATH (Windows ignores .cmd/.bat). */
+function findExecutableOnPath(name: string): string | undefined {
+  const entries = (process.env.PATH ?? "").split(path.delimiter);
+  const extensions = process.platform === "win32" ? [".exe", ".com"] : [""];
+  for (const entry of entries) {
+    if (!entry) continue;
+    for (const extension of extensions) {
+      const candidate = path.join(entry, name + extension);
+      try {
+        if (!fs.statSync(candidate).isFile()) continue;
+        if (process.platform !== "win32") fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      } catch {
+        // Not present or not executable — keep looking.
+      }
+    }
+  }
+  return undefined;
 }
 
 export type { Client };

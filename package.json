@@ -2,7 +2,7 @@
   "name": "opencode-gui-for-vscode",
   "displayName": "Opencode GUI for VSCode",
   "description": "A graphical (Cursor-like) interface for OpenCode inside VS Code.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "dimkosyan",
   "license": "MIT",
   "icon": "media/icon.png",
